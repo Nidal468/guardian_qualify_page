@@ -239,7 +239,10 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
         } else {
           const lead: LeadFormData = { name, phone, email, postcode, contactMethod };
           onSubmitted(lead);
-          fireConfetti();
+          // Fire confetti after 1.5s delay
+          setTimeout(() => {
+            fireConfetti();
+          }, 1500);
           notifyGhlWebhook({
             ...answers,
             name: lead.name,

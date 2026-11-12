@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { CalendarCheck, ClipboardList, PhoneCall, ShieldCheck, Sparkles } from "lucide-react";
 
@@ -137,6 +138,14 @@ export default function ThankYou({ name, phone, email, onProceedToCall }: ThankY
   const [first, ...rest] = name.trim().split(/\s+/);
   const firstName = first || undefined;
 
+  // Auto-switch to Carla call page after 1.5s
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onProceedToCall();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [onProceedToCall]);
+
   return (
     <div className="text-center">
       {/* Animated success checkmark */}
@@ -172,24 +181,15 @@ export default function ThankYou({ name, phone, email, onProceedToCall }: ThankY
       {/* What happens next - informative UI */}
       <NextSteps />
 
-      {/* Proceed to call button */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.6, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-5"
+      {/* Auto-transitioning message */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.2, duration: 0.4 }}
+        className="mt-4 text-xs text-gray-400"
       >
-        <button
-          onClick={onProceedToCall}
-          className="w-full max-w-sm mx-auto rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-bold text-sm sm:text-base px-5 py-3 shadow-[0_4px_16px_rgba(46,122,69,0.3)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 flex items-center justify-center gap-2 cursor-pointer"
-        >
-          Talk to Carla Now
-          <span className="text-brand-200 font-normal text-xs ml-1">→</span>
-        </button>
-        <p className="mt-2 text-xs text-gray-400">
-          Speak with our AI assistant for a quick follow-up
-        </p>
-      </motion.div>
+        Connecting you with Carla...
+      </motion.p>
     </div>
   );
 }
