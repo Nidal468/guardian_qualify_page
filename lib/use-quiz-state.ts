@@ -13,9 +13,10 @@ interface StoredQuiz {
   lead: LeadFormData | null;
   showCallScreen: boolean;
   formFields: FormFields;
+  dev?: boolean;
 }
 
-const INITIAL: StoredQuiz = { idx: 0, answers: {}, lead: null, showCallScreen: false, formFields: {} };
+const INITIAL: StoredQuiz = { idx: 0, answers: {}, lead: null, showCallScreen: false, formFields: {}, dev: false };
 
 const STORAGE_KEY = "g1st_quiz";
 
@@ -78,6 +79,8 @@ export function useQuizState(totalSteps: number): QuizState {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      // Only hydrate from storage if dev mode is enabled
+      if (saved?.dev !== true) return;
       const clean = sanitize(saved, totalSteps);
       if (clean) {
         // One-time hydration from localStorage after mount; must not run during SSR.
@@ -89,6 +92,8 @@ export function useQuizState(totalSteps: number): QuizState {
 
   useEffect(() => {
     if (!touchedRef.current && quiz === INITIAL) return;
+    // Only persist to storage if dev mode is enabled
+    if (quiz.dev !== true) return;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(quiz)); } catch { /* ignore */ }
   }, [quiz]);
 

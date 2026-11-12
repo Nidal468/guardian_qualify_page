@@ -93,7 +93,7 @@ function notifyGhlWebhook(payload: Record<string, string>) {
 }
 
 const inputClass = (hasError: boolean) =>
-  `w-full rounded-xl border-2 bg-white pl-12 pr-4 py-3.5 text-base sm:text-[17px] text-gray-900 placeholder:text-gray-400 transition-all duration-200 focus:outline-none focus:ring-4 ${
+  `w-full rounded-xl border-2 bg-white pl-12 pr-4 py-3 text-base sm:text-[17px] text-gray-900 placeholder:text-gray-400 transition-all duration-200 focus:outline-none focus:ring-4 ${
     hasError
       ? "border-red-300 focus:border-red-400 focus:ring-red-100"
       : "border-gray-200 focus:border-brand-500 focus:ring-brand-500/15 hover:border-gray-300"
@@ -445,7 +445,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
         <form
           noValidate
           onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); handleContinue(); }}
-          className="mt-4 grid grid-cols-1 gap-3 max-w-xl mx-auto"
+          className="mt-3 grid grid-cols-1 gap-2.5 max-w-xl mx-auto"
         >
           {fields.map((field) =>
             field === "contactMethod" ? renderContactMethod() : renderField(field)
@@ -469,7 +469,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
               disabled={submitting}
               whileHover={submitting ? {} : { scale: 1.01 }}
               whileTap={submitting ? {} : { scale: 0.98 }}
-              className={`w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-bold text-base sm:text-lg px-6 py-4 shadow-[0_4px_16px_rgba(46,122,69,0.3)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 flex items-center justify-center gap-2.5 ${
+              className={`w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-bold text-base sm:text-lg px-6 py-3.5 shadow-[0_4px_16px_rgba(46,122,69,0.3)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 flex items-center justify-center gap-2.5 ${
                 submitting ? "opacity-80 cursor-wait" : "cursor-pointer"
               }`}
             >
@@ -498,7 +498,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
             )}
           </motion.div>
 
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="text-center text-xs sm:text-sm text-gray-400 leading-relaxed">
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="text-center text-xs sm:text-sm text-gray-400 leading-snug mt-1">
             We'll only use your details to arrange your free home assessment. See our{" "}
             <a
               href="https://guardian1st.io/privacy"
