@@ -87,7 +87,7 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.15 }}
-            className="mt-2.5 text-brand-600 font-semibold text-sm sm:text-base text-center"
+            className="mt-2 text-brand-600 font-semibold text-sm sm:text-base text-center"
           >
             {currentStep.subtitle}
           </motion.p>
@@ -98,7 +98,7 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
           role="radiogroup"
           aria-label={currentStep.title}
           onKeyDown={handleKeyDown}
-          className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3"
+          className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5"
         >
           {options.map((opt, index) => (
             <OptionButton
@@ -115,7 +115,7 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
         </div>
 
         {/* Status and keyboard hints */}
-        <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+        <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
           <p
             className={`text-sm font-medium transition-colors duration-200 ${
               selected ? "text-brand-700" : "text-gray-400"

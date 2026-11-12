@@ -12,7 +12,7 @@ interface QuizCardProps {
 
 export default function QuizCard({ pct, isDone, currentStep, totalSteps, children }: QuizCardProps) {
   return (
-    <div className="relative w-full max-w-3xl mx-auto bg-white/90 backdrop-blur-sm rounded-3xl border border-brand-100/80 shadow-[0_2px_8px_rgba(0,0,0,0.03),0_12px_40px_rgba(20,53,31,0.10)] p-5 sm:p-8 md:p-10 overflow-hidden">
+    <div className="relative w-full max-w-3xl mx-auto bg-white/90 backdrop-blur-sm rounded-3xl border border-brand-100/80 shadow-[0_2px_8px_rgba(0,0,0,0.03),0_12px_40px_rgba(20,53,31,0.10)] p-4 sm:p-6 md:p-8 overflow-hidden">
       {/* Subtle top gradient accent */}
       <div
         className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-400 via-brand-500 to-brand-600 opacity-80"
@@ -21,7 +21,7 @@ export default function QuizCard({ pct, isDone, currentStep, totalSteps, childre
 
       <ProgressBar pct={pct} currentStep={currentStep} totalSteps={totalSteps} />
 
-      <div className="h-px bg-gradient-to-r from-transparent via-brand-100 to-transparent my-5 -mx-5 sm:-mx-8 md:-mx-10" aria-hidden="true" />
+      <div className="h-px bg-gradient-to-r from-transparent via-brand-100 to-transparent my-4 -mx-4 sm:-mx-6 md:-mx-8" aria-hidden="true" />
 
       {children}
 

@@ -29,6 +29,7 @@ export interface StepData {
   options?: StepOption[];
   isStacked?: boolean;
   isInput?: boolean;
+  inputFields?: ("name" | "phone" | "email" | "postcode" | "contactMethod")[];
 }
 
 const icon = (Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>) => (
@@ -130,10 +131,29 @@ export const STEPS: StepData[] = [
   },
   {
     step: "9",
-    key: "lead_form",
-    title: "Where should we send your free home assessment recommendation?",
+    key: "form_contact",
+    title: "What's your name and phone number?",
+    subtitle: "So we can reach you about your assessment",
+    pct: 92,
+    isInput: true,
+    inputFields: ["name", "phone"],
+  },
+  {
+    step: "10",
+    key: "form_details",
+    title: "Your email and postcode?",
+    subtitle: "For sending your personalised recommendation",
+    pct: 96,
+    isInput: true,
+    inputFields: ["email", "postcode"],
+  },
+  {
+    step: "11",
+    key: "form_contact_method",
+    title: "How would you prefer to be contacted?",
     pct: 100,
     isInput: true,
+    inputFields: ["contactMethod"],
   },
 ];
 

@@ -3,13 +3,19 @@ import type { LeadFormData } from "@/components/quiz/lead-form";
 
 export type QuizAnswers = Record<string, string>;
 
+export type FormFields = Partial<Omit<LeadFormData, "contactMethod">> & {
+  contactMethod?: "phone" | "email" | "";
+};
+
 interface StoredQuiz {
   idx: number;
   answers: QuizAnswers;
   lead: LeadFormData | null;
+  showCallScreen: boolean;
+  formFields: FormFields;
 }
 
-const INITIAL: StoredQuiz = { idx: 0, answers: {}, lead: null };
+const INITIAL: StoredQuiz = { idx: 0, answers: {}, lead: null, showCallScreen: false, formFields: {} };
 
 const STORAGE_KEY = "g1st_quiz";
 
@@ -23,6 +29,18 @@ function isLead(value: unknown): value is LeadFormData {
     typeof lead.postcode === "string" &&
     (lead.contactMethod === "phone" || lead.contactMethod === "email")
   );
+}
+
+function sanitizeFormFields(value: unknown): FormFields {
+  if (!value || typeof value !== "object") return {};
+  const raw = value as Record<string, unknown>;
+  const fields: FormFields = {};
+  if (typeof raw.name === "string" && raw.name.length <= 100) fields.name = raw.name;
+  if (typeof raw.phone === "string" && raw.phone.length <= 20) fields.phone = raw.phone;
+  if (typeof raw.email === "string" && raw.email.length <= 254) fields.email = raw.email;
+  if (typeof raw.postcode === "string" && raw.postcode.length <= 8) fields.postcode = raw.postcode;
+  if (raw.contactMethod === "phone" || raw.contactMethod === "email") fields.contactMethod = raw.contactMethod;
+  return fields;
 }
 
 function sanitize(value: unknown, totalSteps: number): Partial<StoredQuiz> | null {
@@ -45,6 +63,9 @@ function sanitize(value: unknown, totalSteps: number): Partial<StoredQuiz> | nul
     clean.answers = answers;
   }
   if (isLead(saved.lead)) clean.lead = saved.lead;
+  if (saved.formFields && typeof saved.formFields === "object") {
+    clean.formFields = sanitizeFormFields(saved.formFields);
+  }
   return Object.keys(clean).length > 0 ? clean : null;
 }
 
@@ -95,19 +116,33 @@ export function useQuizState(totalSteps: number): QuizState {
   }, []);
   const completeLead = useCallback((submittedLead: LeadFormData) => {
     touchedRef.current = true;
-    setQuiz((prev) => ({ ...prev, lead: submittedLead, idx: totalSteps - 1 }));
+    setQuiz((prev) => ({ ...prev, lead: submittedLead, idx: totalSteps - 1, showCallScreen: false, formFields: {} }));
   }, [totalSteps]);
+
+  const goToCallScreen = useCallback(() => {
+    touchedRef.current = true;
+    setQuiz((prev) => ({ ...prev, showCallScreen: true }));
+  }, []);
+
+  const updateFormFields = useCallback((fields: Partial<FormFields>) => {
+    touchedRef.current = true;
+    setQuiz((prev) => ({ ...prev, formFields: { ...prev.formFields, ...fields } }));
+  }, []);
 
   return {
     idx: quiz.idx,
     answers: quiz.answers,
     lead: quiz.lead,
     submitted: quiz.lead !== null,
+    showCallScreen: quiz.showCallScreen,
+    formFields: quiz.formFields,
     setIdx,
     selectOption,
     goNext,
     goPrev,
     completeLead,
+    goToCallScreen,
+    updateFormFields,
   };
 }
 
@@ -116,9 +151,13 @@ export interface QuizState {
   answers: QuizAnswers;
   lead: LeadFormData | null;
   submitted: boolean;
+  showCallScreen: boolean;
+  formFields: FormFields;
   setIdx: (idx: number) => void;
   selectOption: (key: string, value: string) => void;
   goNext: () => void;
   goPrev: () => void;
   completeLead: (lead: LeadFormData) => void;
+  goToCallScreen: () => void;
+  updateFormFields: (fields: Partial<FormFields>) => void;
 }

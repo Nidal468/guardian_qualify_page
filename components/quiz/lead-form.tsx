@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, Loader2, Mail, MapPin, Phone, User } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { StepData } from "@/lib/quiz-data";
 import { useHasPhysicalKeyboard } from "@/lib/use-keyboard-nav";
+import type { FormFields } from "@/lib/use-quiz-state";
 
 const REQUIRED_ANSWER_KEYS = [
   "first_time", "protection_for", "priority", "alarm",
@@ -24,11 +25,15 @@ interface LeadFormProps {
   currentStep: StepData;
   idx: number;
   answers: Record<string, string>;
+  formFields: FormFields;
+  updateFormFields: (fields: Partial<FormFields>) => void;
   onGoPrev: () => void;
+  onGoNext: () => void;
   onSubmitted: (data: LeadFormData) => void;
 }
 
-type FieldErrors = Partial<Record<"name" | "phone" | "email" | "postcode" | "contactMethod", string>>;
+type FieldName = "name" | "phone" | "email" | "postcode" | "contactMethod";
+type FieldErrors = Partial<Record<FieldName, string>>;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
@@ -37,7 +42,7 @@ function normalizePhone(value: string): string {
   return value.replace(/[\s\-().]/g, "");
 }
 
-function validateField(field: keyof FieldErrors, value: string): string {
+function validateField(field: FieldName, value: string): string {
   switch (field) {
     case "name": {
       const trimmed = value.trim();
@@ -69,7 +74,6 @@ function validateField(field: keyof FieldErrors, value: string): string {
 // Same GHL webhook trigger as the Battery 1st qualification quiz.
 const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/mT1ydY9XA0GOQLyWcJWq/webhook-trigger/d9716cb1-9e8e-405f-a533-a9841f16a8fc";
 
-// Ported from the Battery 1st landing page (green brand palette, double burst).
 function fireConfetti() {
   const colors = ["#37ca37", "#26472b", "#ffffff", "#d4b24c"];
   confetti({ spread: 70, ticks: 240, gravity: 0.85, decay: 0.94, startVelocity: 38, colors, scalar: 0.9 });
@@ -95,74 +99,113 @@ const inputClass = (hasError: boolean) =>
       : "border-gray-200 focus:border-brand-500 focus:ring-brand-500/15 hover:border-gray-300"
   }`;
 
-export default function LeadForm({ currentStep, idx, answers, onGoPrev, onSubmitted }: LeadFormProps) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [postcode, setPostcode] = useState("");
-  const [contactMethod, setContactMethod] = useState("");
+const FIELD_META: Record<FieldName, { label: string; placeholder: string; type: string; autoComplete: string; icon: typeof User; maxLength?: number; inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search"; uppercase?: boolean }> = {
+  name: { label: "Full name", placeholder: "Your full name", type: "text", autoComplete: "name", icon: User, maxLength: 100 },
+  phone: { label: "Phone number", placeholder: "e.g. 07123 456789", type: "tel", autoComplete: "tel", icon: Phone, maxLength: 20, inputMode: "tel" },
+  email: { label: "Email address", placeholder: "you@example.com", type: "email", autoComplete: "email", icon: Mail, maxLength: 254 },
+  postcode: { label: "Property postcode", placeholder: "e.g. SW1A 1AA", type: "text", autoComplete: "postal-code", icon: MapPin, maxLength: 8, uppercase: true },
+  contactMethod: { label: "How should we contact you?", placeholder: "", type: "", autoComplete: "", icon: Phone },
+};
+
+export default function LeadForm({ currentStep, idx, answers, formFields, updateFormFields, onGoPrev, onGoNext, onSubmitted }: LeadFormProps) {
+  const fields = currentStep.inputFields ?? [];
+  const isLastStep = fields.includes("contactMethod");
+
+  // Local state mirrors formFields for the current step's fields so inputs are controlled
+  const [local, setLocal] = useState<FormFields>(() => {
+    const init: FormFields = {};
+    for (const f of fields) {
+      if (f === "contactMethod") {
+        init[f] = formFields.contactMethod || "";
+      } else {
+        init[f] = formFields[f] ?? "";
+      }
+    }
+    return init;
+  });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const inFlight = useRef(false);
   const hasKeyboard = useHasPhysicalKeyboard();
 
-  // Refs for keyboard navigation
-  const nameRef = useRef<HTMLInputElement>(null);
-  const phoneRef = useRef<HTMLInputElement>(null);
-  const emailRef = useRef<HTMLInputElement>(null);
-  const postcodeRef = useRef<HTMLInputElement>(null);
+  // Sync local state when step changes
+  useEffect(() => {
+    const next: FormFields = {};
+    for (const f of fields) {
+      if (f === "contactMethod") {
+        next[f] = formFields.contactMethod || "";
+      } else {
+        next[f] = formFields[f] ?? "";
+      }
+    }
+    setLocal(next);
+    setErrors({});
+    setSubmitError("");
+  }, [currentStep.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const focusNext = useCallback((current: "name" | "phone" | "email" | "postcode") => {
-    const order = { name: phoneRef, phone: emailRef, email: postcodeRef, postcode: null };
-    order[current]?.current?.focus();
+  // Refs for keyboard navigation
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const updateLocal = useCallback((field: FieldName, value: string) => {
+    setLocal((prev) => ({ ...prev, [field]: value }));
+    // Clear error for this field when user types
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }, []);
 
-  const handleInputKeyDown = useCallback(
-    (field: "name" | "phone" | "email" | "postcode") => (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        if (field === "postcode") {
-          // Focus contact method or submit
-          const form = event.currentTarget.closest("form");
-          const submitBtn = form?.querySelector<HTMLButtonElement>("button[type='submit']");
-          submitBtn?.focus();
-        } else {
-          focusNext(field);
-        }
-      }
-    },
-    [focusNext],
-  );
-
-  const validateAll = useCallback((): FieldErrors => {
+  const validateCurrentFields = useCallback((): FieldErrors => {
     const next: FieldErrors = {};
-    for (const [field, value] of [
-      ["name", name],
-      ["phone", phone],
-      ["email", email],
-      ["postcode", postcode],
-      ["contactMethod", contactMethod],
-    ] as const) {
+    for (const field of fields) {
+      const value = (local as Record<string, string | undefined>)[field] ?? "";
       const message = validateField(field, value);
       if (message) next[field] = message;
     }
     return next;
-  }, [name, phone, email, postcode, contactMethod]);
+  }, [fields, local]);
+
+  const handleContinue = useCallback(() => {
+    const fieldErrors = validateCurrentFields();
+    setErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) return;
+
+    // Save to shared state
+    updateFormFields(local);
+    onGoNext();
+  }, [validateCurrentFields, local, updateFormFields, onGoNext]);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
       if (inFlight.current || submitting) return;
       setSubmitError("");
-      const fieldErrors = validateAll();
+
+      const fieldErrors = validateCurrentFields();
       setErrors(fieldErrors);
       if (Object.keys(fieldErrors).length > 0) return;
+
+      // Merge with shared state for complete data
+      const allFields: FormFields = { ...formFields, ...local };
 
       // Validate all required quiz answers are present
       const missingAnswers = REQUIRED_ANSWER_KEYS.filter((key) => !answers[key]);
       if (missingAnswers.length > 0) {
         setSubmitError("Please complete all quiz questions before submitting.");
+        return;
+      }
+
+      const name = (allFields.name ?? "").trim();
+      const phone = normalizePhone(allFields.phone ?? "");
+      const email = (allFields.email ?? "").trim().toLowerCase();
+      const postcode = (allFields.postcode ?? "").trim().toUpperCase();
+      const contactMethod = allFields.contactMethod as "phone" | "email";
+
+      if (!contactMethod) {
+        setSubmitError("Please choose how you'd like to be contacted.");
         return;
       }
 
@@ -173,10 +216,10 @@ export default function LeadForm({ currentStep, idx, answers, onGoPrev, onSubmit
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: name.trim(),
-            phone: normalizePhone(phone),
-            email: email.trim().toLowerCase(),
-            postcode: postcode.trim().toUpperCase(),
+            name,
+            phone,
+            email,
+            postcode,
             contactMethod,
             answers,
           }),
@@ -194,13 +237,7 @@ export default function LeadForm({ currentStep, idx, answers, onGoPrev, onSubmit
             data.error || "Something went wrong sending your request. Please try again.",
           );
         } else {
-          const lead: LeadFormData = {
-            name: name.trim(),
-            phone: normalizePhone(phone),
-            email: email.trim().toLowerCase(),
-            postcode: postcode.trim().toUpperCase(),
-            contactMethod: contactMethod as "phone" | "email",
-          };
+          const lead: LeadFormData = { name, phone, email, postcode, contactMethod };
           onSubmitted(lead);
           fireConfetti();
           notifyGhlWebhook({
@@ -219,311 +256,262 @@ export default function LeadForm({ currentStep, idx, answers, onGoPrev, onSubmit
         setSubmitting(false);
       }
     },
-    [answers, contactMethod, email, name, onSubmitted, phone, postcode, submitting, validateAll],
+    [answers, formFields, local, onSubmitted, submitting, validateCurrentFields],
   );
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.08, delayChildren: 0.1 },
+  const handleInputKeyDown = useCallback(
+    (field: FieldName) => (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const fieldIdx = fields.indexOf(field);
+        const nextField = fields[fieldIdx + 1];
+        if (nextField && nextField !== "contactMethod") {
+          inputRefs.current[nextField]?.focus();
+        } else if (isLastStep) {
+          // Focus submit button
+          const form = event.currentTarget.closest("form");
+          const submitBtn = form?.querySelector<HTMLButtonElement>("button[type='submit']");
+          submitBtn?.focus();
+        } else {
+          handleContinue();
+        }
+      }
     },
+    [fields, isLastStep, handleContinue],
+  );
+
+  const renderField = (field: FieldName) => {
+    if (field === "contactMethod") return null; // handled separately
+    const meta = FIELD_META[field];
+    const value = (local as Record<string, string | undefined>)[field] ?? "";
+    const Icon = meta.icon;
+    const hasError = Boolean(errors[field]);
+
+    return (
+      <motion.div
+        key={field}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <label htmlFor={`lead-${field}`} className="block text-sm font-semibold text-gray-700 mb-1">
+          {meta.label}
+        </label>
+        <div className="relative">
+          <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" aria-hidden="true" />
+          <input
+            ref={(el) => { inputRefs.current[field] = el; }}
+            id={`lead-${field}`}
+            name={field}
+            type={meta.type}
+            inputMode={meta.inputMode}
+            autoComplete={meta.autoComplete}
+            maxLength={meta.maxLength}
+            value={value}
+            onChange={(event) => updateLocal(field, meta.uppercase ? event.target.value.toUpperCase() : event.target.value)}
+            onKeyDown={handleInputKeyDown(field)}
+            aria-invalid={hasError}
+            aria-describedby={hasError ? `lead-${field}-error` : undefined}
+            className={`${inputClass(hasError)}${meta.uppercase ? " uppercase" : ""}`}
+            placeholder={meta.placeholder}
+            autoFocus
+          />
+        </div>
+        {errors[field] && (
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            id={`lead-${field}-error`}
+            role="alert"
+            className="mt-1.5 text-sm font-medium text-red-600"
+          >
+            {errors[field]}
+          </motion.p>
+        )}
+      </motion.div>
+    );
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
+  const renderContactMethod = () => {
+    const value = (local as Record<string, string | undefined>).contactMethod ?? "";
+    const hasError = Boolean(errors.contactMethod);
+
+    return (
+      <motion.fieldset
+        key="contactMethod"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <legend className="block text-sm font-semibold text-gray-700 mb-1.5">
+          {FIELD_META.contactMethod.label}
+        </legend>
+        <div
+          role="radiogroup"
+          aria-label="Preferred contact method"
+          className="grid grid-cols-2 gap-2 p-1.5 bg-gray-100/80 rounded-xl"
+        >
+          {(["phone", "email"] as const).map((method) => (
+            <motion.button
+              key={method}
+              type="button"
+              role="radio"
+              aria-checked={value === method}
+              onClick={() => updateLocal("contactMethod", method)}
+              whileTap={{ scale: 0.97 }}
+              className={`relative flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm sm:text-base font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${
+                value === method
+                  ? "bg-white text-brand-700 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {method === "phone" ? (
+                <Phone className="w-4 h-4" aria-hidden="true" />
+              ) : (
+                <Mail className="w-4 h-4" aria-hidden="true" />
+              )}
+              {method === "phone" ? "Phone" : "Email"}
+              {value === method && (
+                <motion.span
+                  layoutId="contact-check"
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-brand-500 rounded-full flex items-center justify-center"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                >
+                  <Check className="w-3 h-3 text-white" strokeWidth={3} aria-hidden="true" />
+                </motion.span>
+              )}
+            </motion.button>
+          ))}
+        </div>
+        {hasError && (
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            role="alert"
+            className="mt-1.5 text-sm font-medium text-red-600"
+          >
+            {errors.contactMethod}
+          </motion.p>
+        )}
+      </motion.fieldset>
+    );
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -24 }}
-      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <div className="relative flex items-center justify-center gap-3 sm:gap-4">
-        {idx > 0 && (
-          <motion.button
-            type="button"
-            onClick={onGoPrev}
-            aria-label="Previous question"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-gray-200 bg-white text-brand-700 flex items-center justify-center transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 shrink-0"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </motion.button>
-        )}
-        <h3 className="text-gray-900 font-bold text-xl sm:text-2xl md:text-[27px] leading-snug tracking-tight text-center">
-          {currentStep.title}
-        </h3>
-      </div>
-
-      <motion.form
-        noValidate
-        onSubmit={handleSubmit}
-        className="mt-6 grid grid-cols-1 gap-4 max-w-xl mx-auto"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={currentStep.key}
+        initial={{ opacity: 0, x: 24 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -24 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* Name field */}
-        <motion.div variants={itemVariants}>
-          <label htmlFor="lead-name" className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Full name
-          </label>
-          <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" aria-hidden="true" />
-            <input
-              ref={nameRef}
-              id="lead-name"
-              name="name"
-              type="text"
-              autoComplete="name"
-              maxLength={100}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={handleInputKeyDown("name")}
-              aria-invalid={Boolean(errors.name)}
-              aria-describedby={errors.name ? "lead-name-error" : undefined}
-              className={inputClass(Boolean(errors.name))}
-              placeholder="Your full name"
-            />
-          </div>
-          {errors.name && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              id="lead-name-error"
-              role="alert"
-              className="mt-1.5 text-sm font-medium text-red-600"
+        <div className="relative flex items-center justify-center gap-3 sm:gap-4">
+          {idx > 0 && (
+            <motion.button
+              type="button"
+              onClick={onGoPrev}
+              aria-label="Previous question"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-gray-200 bg-white text-brand-700 flex items-center justify-center transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 shrink-0"
             >
-              {errors.name}
-            </motion.p>
+              <ArrowLeft className="w-5 h-5" />
+            </motion.button>
           )}
-        </motion.div>
-
-        {/* Phone field */}
-        <motion.div variants={itemVariants}>
-          <label htmlFor="lead-phone" className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Phone number
-          </label>
-          <div className="relative">
-            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" aria-hidden="true" />
-            <input
-              ref={phoneRef}
-              id="lead-phone"
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              maxLength={20}
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              onKeyDown={handleInputKeyDown("phone")}
-              aria-invalid={Boolean(errors.phone)}
-              aria-describedby={errors.phone ? "lead-phone-error" : undefined}
-              className={inputClass(Boolean(errors.phone))}
-              placeholder="e.g. 07123 456789"
-            />
-          </div>
-          {errors.phone && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              id="lead-phone-error"
-              role="alert"
-              className="mt-1.5 text-sm font-medium text-red-600"
-            >
-              {errors.phone}
-            </motion.p>
-          )}
-        </motion.div>
-
-        {/* Email field */}
-        <motion.div variants={itemVariants}>
-          <label htmlFor="lead-email" className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Email address
-          </label>
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" aria-hidden="true" />
-            <input
-              ref={emailRef}
-              id="lead-email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              maxLength={254}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              onKeyDown={handleInputKeyDown("email")}
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={errors.email ? "lead-email-error" : undefined}
-              className={inputClass(Boolean(errors.email))}
-              placeholder="you@example.com"
-            />
-          </div>
-          {errors.email && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              id="lead-email-error"
-              role="alert"
-              className="mt-1.5 text-sm font-medium text-red-600"
-            >
-              {errors.email}
-            </motion.p>
-          )}
-        </motion.div>
-
-        {/* Postcode field */}
-        <motion.div variants={itemVariants}>
-          <label htmlFor="lead-postcode" className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Property postcode
-          </label>
-          <div className="relative">
-            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" aria-hidden="true" />
-            <input
-              ref={postcodeRef}
-              id="lead-postcode"
-              name="postcode"
-              type="text"
-              autoComplete="postal-code"
-              maxLength={8}
-              value={postcode}
-              onChange={(event) => setPostcode(event.target.value.toUpperCase())}
-              onKeyDown={handleInputKeyDown("postcode")}
-              aria-invalid={Boolean(errors.postcode)}
-              aria-describedby={errors.postcode ? "lead-postcode-error" : undefined}
-              className={`${inputClass(Boolean(errors.postcode))} uppercase`}
-              placeholder="e.g. SW1A 1AA"
-            />
-          </div>
-          {errors.postcode && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              id="lead-postcode-error"
-              role="alert"
-              className="mt-1.5 text-sm font-medium text-red-600"
-            >
-              {errors.postcode}
-            </motion.p>
-          )}
-        </motion.div>
-
-        {/* Contact method - iOS segmented control style */}
-        <motion.fieldset variants={itemVariants}>
-          <legend className="block text-sm font-semibold text-gray-700 mb-2">
-            How should we contact you?
-          </legend>
-          <div
-            role="radiogroup"
-            aria-label="Preferred contact method"
-            className="grid grid-cols-2 gap-2 p-1.5 bg-gray-100/80 rounded-xl"
+          <motion.h3
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.3 }}
+            className="text-gray-900 font-bold text-lg sm:text-xl md:text-[23px] leading-snug tracking-tight text-center"
           >
-            {(["phone", "email"] as const).map((method) => (
-              <motion.button
-                key={method}
-                type="button"
-                role="radio"
-                aria-checked={contactMethod === method}
-                onClick={() => setContactMethod(method)}
-                whileTap={{ scale: 0.97 }}
-                className={`relative flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm sm:text-base font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${
-                  contactMethod === method
-                    ? "bg-white text-brand-700 shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {method === "phone" ? (
-                  <Phone className="w-4 h-4" aria-hidden="true" />
-                ) : (
-                  <Mail className="w-4 h-4" aria-hidden="true" />
-                )}
-                {method === "phone" ? "Phone" : "Email"}
-                {contactMethod === method && (
-                  <motion.span
-                    layoutId="contact-check"
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-brand-500 rounded-full flex items-center justify-center"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  >
-                    <Check className="w-3 h-3 text-white" strokeWidth={3} aria-hidden="true" />
-                  </motion.span>
-                )}
-              </motion.button>
-            ))}
-          </div>
-          {errors.contactMethod && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              role="alert"
-              className="mt-1.5 text-sm font-medium text-red-600"
-            >
-              {errors.contactMethod}
-            </motion.p>
-          )}
-        </motion.fieldset>
+            {currentStep.title}
+          </motion.h3>
+        </div>
 
-        {submitError && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            role="alert"
-            className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-sm sm:text-base font-medium text-red-700"
+        {currentStep.subtitle && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15 }}
+            className="mt-1.5 text-brand-600 font-semibold text-sm sm:text-base text-center"
           >
-            {submitError}
-          </motion.div>
+            {currentStep.subtitle}
+          </motion.p>
         )}
 
-        {/* Submit button */}
-        <motion.div variants={itemVariants}>
-          <motion.button
-            type="submit"
-            disabled={submitting}
-            whileHover={submitting ? {} : { scale: 1.01 }}
-            whileTap={submitting ? {} : { scale: 0.98 }}
-            className={`w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-bold text-base sm:text-lg px-6 py-4 shadow-[0_4px_16px_rgba(46,122,69,0.3)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 flex items-center justify-center gap-2.5 ${
-              submitting ? "opacity-80 cursor-wait" : "cursor-pointer"
-            }`}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-5 h-5 motion-safe:animate-spin" aria-hidden="true" />
-                Sending…
-              </>
-            ) : (
-              <>
-                Request My Free Assessment
-                <span className="hidden sm:inline text-brand-200 font-normal text-sm ml-1">↵</span>
-              </>
-            )}
-          </motion.button>
-
-          {hasKeyboard && (
-            <p className="mt-2 text-center text-xs text-gray-400" aria-hidden="true">
-              Press <span className="kbd-hint">Enter ↵</span> in each field to move to the next
-            </p>
+        <form
+          noValidate
+          onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); handleContinue(); }}
+          className="mt-4 grid grid-cols-1 gap-3 max-w-xl mx-auto"
+        >
+          {fields.map((field) =>
+            field === "contactMethod" ? renderContactMethod() : renderField(field)
           )}
-        </motion.div>
 
-        <motion.p variants={itemVariants} className="text-center text-xs sm:text-sm text-gray-400 leading-relaxed">
-          We&apos;ll only use your details to arrange your free home assessment. See our{" "}
-          <a
-            href="https://guardian1st.io/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 font-medium text-brand-600 hover:text-brand-700 transition-colors"
-          >
-            privacy policy
-          </a>
-          .
-        </motion.p>
-      </motion.form>
-    </motion.div>
+          {submitError && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              role="alert"
+              className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-sm sm:text-base font-medium text-red-700"
+            >
+              {submitError}
+            </motion.div>
+          )}
+
+          {/* Action button */}
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <motion.button
+              type="submit"
+              disabled={submitting}
+              whileHover={submitting ? {} : { scale: 1.01 }}
+              whileTap={submitting ? {} : { scale: 0.98 }}
+              className={`w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-bold text-base sm:text-lg px-6 py-4 shadow-[0_4px_16px_rgba(46,122,69,0.3)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 flex items-center justify-center gap-2.5 ${
+                submitting ? "opacity-80 cursor-wait" : "cursor-pointer"
+              }`}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 motion-safe:animate-spin" aria-hidden="true" />
+                  Sending…
+                </>
+              ) : isLastStep ? (
+                <>
+                  Request My Free Assessment
+                  <span className="hidden sm:inline text-brand-200 font-normal text-sm ml-1">↵</span>
+                </>
+              ) : (
+                <>
+                  Continue
+                  <span className="hidden sm:inline text-brand-200 font-normal text-sm ml-1">→</span>
+                </>
+              )}
+            </motion.button>
+
+            {hasKeyboard && (
+              <p className="mt-2 text-center text-xs text-gray-400" aria-hidden="true">
+                Press <span className="kbd-hint">Enter ↵</span> to continue
+              </p>
+            )}
+          </motion.div>
+
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="text-center text-xs sm:text-sm text-gray-400 leading-relaxed">
+            We'll only use your details to arrange your free home assessment. See our{" "}
+            <a
+              href="https://guardian1st.io/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 font-medium text-brand-600 hover:text-brand-700 transition-colors"
+            >
+              privacy policy
+            </a>
+            .
+          </motion.p>
+        </form>
+      </motion.div>
+    </AnimatePresence>
   );
 }

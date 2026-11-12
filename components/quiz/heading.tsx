@@ -3,7 +3,7 @@ import { Sparkles } from "lucide-react";
 
 export default function QuizHeading() {
   return (
-    <section className="pt-6 sm:pt-10 pb-6 px-4">
+    <section className="pt-3 sm:pt-5 pb-3 sm:pb-4 px-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

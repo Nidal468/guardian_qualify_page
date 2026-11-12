@@ -5,7 +5,8 @@ import QuizHeading from "@/components/quiz/heading";
 import QuizCard from "@/components/quiz/card";
 import QuizQuestion from "@/components/quiz/question";
 import LeadForm from "@/components/quiz/lead-form";
-import QuizDone from "@/components/quiz/done-screen";
+import ThankYou from "@/components/quiz/thank-you";
+import CallScreen from "@/components/quiz/call-screen";
 import Benefits from "@/components/quiz/benefits";
 import QuizFooter from "@/components/quiz/footer";
 import { STEPS, TOTAL_STEPS } from "@/lib/quiz-data";
@@ -19,8 +20,9 @@ export default function Home() {
   return (
     <main className="flex-1 flex flex-col min-h-screen bg-background">
       <QuizHeader />
-      <div className="flex-1 w-full max-w-[1140px] mx-auto px-3 sm:px-4 py-6 sm:py-10">
-        <QuizHeading />
+      <div className="flex-1 w-full max-w-[1140px] mx-auto px-3 sm:px-4 py-4 sm:py-6">
+        {/* Only show heading on first step or when submitted */}
+        {(quiz.idx === 0 || submitted) && <QuizHeading />}
         <QuizCard
           pct={submitted ? 100 : currentStep.pct}
           isDone={submitted}
@@ -28,13 +30,25 @@ export default function Home() {
           totalSteps={TOTAL_STEPS}
         >
           {submitted && quiz.lead ? (
-            <QuizDone name={quiz.lead.name} phone={quiz.lead.phone} email={quiz.lead.email} />
+            quiz.showCallScreen ? (
+              <CallScreen name={quiz.lead.name} phone={quiz.lead.phone} email={quiz.lead.email} />
+            ) : (
+              <ThankYou
+                name={quiz.lead.name}
+                phone={quiz.lead.phone}
+                email={quiz.lead.email}
+                onProceedToCall={quiz.goToCallScreen}
+              />
+            )
           ) : currentStep.isInput ? (
             <LeadForm
               currentStep={currentStep}
               idx={quiz.idx}
               answers={quiz.answers}
+              formFields={quiz.formFields}
+              updateFormFields={quiz.updateFormFields}
               onGoPrev={quiz.goPrev}
+              onGoNext={quiz.goNext}
               onSubmitted={(lead) => quiz.completeLead(lead)}
             />
           ) : (
@@ -47,7 +61,8 @@ export default function Home() {
             />
           )}
         </QuizCard>
-        <Benefits />
+        {/* Only show benefits after submission */}
+        {submitted && <Benefits />}
       </div>
       <QuizFooter />
     </main>
