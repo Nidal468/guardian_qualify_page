@@ -21,7 +21,7 @@ export default function QuizHeading() {
           Takes about 60 seconds
         </motion.span>
 
-        <h1 className="text-brand-900 text-[28px] sm:text-[34px] md:text-[40px] leading-[1.15] font-extrabold tracking-tight max-w-[720px] mx-auto">
+        <h1 className="text-brand-900 text-[22px] sm:text-[34px] md:text-[40px] leading-[1.15] font-extrabold tracking-tight max-w-180 mx-auto">
           Free Home Protection{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-500">
             Assessment
@@ -31,7 +31,7 @@ export default function QuizHeading() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.4 }}
-          className="mt-3 text-gray-500 text-base sm:text-lg leading-relaxed max-w-[540px] mx-auto"
+          className="mt-3 text-gray-500 text-[13px] sm:text-lg leading-relaxed max-w-135 mx-auto"
         >
           Answer a few quick questions and we&apos;ll recommend the right protection for your home — free, with no obligation.
         </motion.p>

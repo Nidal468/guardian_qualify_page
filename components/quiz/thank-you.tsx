@@ -142,7 +142,7 @@ export default function ThankYou({ name, phone, email, onProceedToCall }: ThankY
   useEffect(() => {
     const timer = setTimeout(() => {
       onProceedToCall();
-    }, 1500);
+    }, 8000);
     return () => clearTimeout(timer);
   }, [onProceedToCall]);
 

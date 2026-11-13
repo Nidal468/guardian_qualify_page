@@ -67,16 +67,16 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
               aria-label="Previous question"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-gray-200 bg-white text-brand-700 flex items-center justify-center transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 shrink-0"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-gray-200 bg-white text-brand-700 flex items-center justify-center transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 shrink-0"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-3 h-3" />
             </motion.button>
           )}
           <motion.h3
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.3 }}
-            className="text-gray-900 font-bold text-xl sm:text-2xl md:text-[27px] leading-snug tracking-tight text-center"
+            className="text-gray-900 font-bold text-sm sm:text-2xl md:text-[27px] leading-snug tracking-tight text-center"
           >
             {currentStep.title}
           </motion.h3>
@@ -117,7 +117,7 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
         {/* Status and keyboard hints */}
         <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
           <p
-            className={`text-sm font-medium transition-colors duration-200 ${
+            className={`text-xs font-medium transition-colors duration-200 ${
               selected ? "text-brand-700" : "text-gray-400"
             }`}
             aria-live="polite"

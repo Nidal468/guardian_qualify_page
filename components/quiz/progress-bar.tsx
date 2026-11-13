@@ -14,7 +14,7 @@ export default function ProgressBar({ pct, currentStep, totalSteps }: ProgressBa
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-brand-800">
+        <span className="text-xs font-semibold text-brand-800">
           {showSteps ? (
             <>
               Question {currentStep} <span className="text-brand-400 font-medium">of {totalSteps}</span>
