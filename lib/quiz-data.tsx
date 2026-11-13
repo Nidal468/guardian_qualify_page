@@ -29,7 +29,7 @@ export interface StepData {
   options?: StepOption[];
   isStacked?: boolean;
   isInput?: boolean;
-  inputFields?: ("name" | "phone" | "email" | "postcode" | "contactMethod")[];
+  inputFields?: ("firstName" | "lastName" | "phone" | "email" | "postcode" | "contactMethod")[];
 }
 
 const icon = (Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>) => (
@@ -131,19 +131,19 @@ export const STEPS: StepData[] = [
   },
   {
     step: "9",
-    key: "form_name",
-    title: "What's your full name?",
+    key: "form_postcode",
+    title: "Let's check your postcode to see if we can help you",
     pct: 92,
     isInput: true,
-    inputFields: ["name"],
+    inputFields: ["postcode"],
   },
   {
     step: "10",
-    key: "form_phone",
-    title: "What's your phone number?",
+    key: "form_name",
+    title: "What's your name?",
     pct: 94,
     isInput: true,
-    inputFields: ["phone"],
+    inputFields: ["firstName", "lastName"],
   },
   {
     step: "11",
@@ -155,11 +155,11 @@ export const STEPS: StepData[] = [
   },
   {
     step: "12",
-    key: "form_postcode",
-    title: "What's your property postcode?",
+    key: "form_phone",
+    title: "What's your phone number?",
     pct: 100,
     isInput: true,
-    inputFields: ["postcode"],
+    inputFields: ["phone"],
   },
 ];
 

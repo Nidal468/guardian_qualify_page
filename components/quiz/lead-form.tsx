@@ -42,7 +42,7 @@ interface LeadFormProps {
   onSubmitted: (data: LeadFormData) => void;
 }
 
-type FieldName = "name" | "phone" | "email" | "postcode" | "contactMethod";
+type FieldName = "firstName" | "lastName" | "phone" | "email" | "postcode" | "contactMethod";
 type FieldErrors = Partial<Record<FieldName, string>>;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -54,9 +54,14 @@ function normalizePhone(value: string): string {
 
 function validateField(field: FieldName, value: string): string {
   switch (field) {
-    case "name": {
+    case "firstName": {
       const trimmed = value.trim();
-      if (trimmed.length < 2 || trimmed.length > 100) return "Please enter your full name";
+      if (trimmed.length < 2 || trimmed.length > 100) return "Please enter your first name";
+      return "";
+    }
+    case "lastName": {
+      const trimmed = value.trim();
+      if (trimmed.length < 2 || trimmed.length > 100) return "Please enter your last name";
       return "";
     }
     case "phone": {
@@ -110,7 +115,8 @@ const inputClass = (hasError: boolean) =>
   }`;
 
 const FIELD_META: Record<FieldName, { label: string; placeholder: string; type: string; autoComplete: string; icon: typeof User; maxLength?: number; inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search"; uppercase?: boolean }> = {
-  name: { label: "Full name", placeholder: "Your full name", type: "text", autoComplete: "name", icon: User, maxLength: 100 },
+  firstName: { label: "First name", placeholder: "First name", type: "text", autoComplete: "given-name", icon: User, maxLength: 100 },
+  lastName: { label: "Last name", placeholder: "Last name", type: "text", autoComplete: "family-name", icon: User, maxLength: 100 },
   phone: { label: "Phone number", placeholder: "e.g. 07123 456789", type: "tel", autoComplete: "tel", icon: Phone, maxLength: 20, inputMode: "tel" },
   email: { label: "Email address", placeholder: "you@example.com", type: "email", autoComplete: "email", icon: Mail, maxLength: 254 },
   postcode: { label: "Property postcode", placeholder: "e.g. SW1A 1AA", type: "text", autoComplete: "postal-code", icon: MapPin, maxLength: 8, uppercase: true },
@@ -201,8 +207,12 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
 
     // Save to shared state
     updateFormFields(local);
+    // Fire confetti when postcode step is completed
+    if (currentStep.key === "form_postcode") {
+      fireConfetti();
+    }
     onGoNext();
-  }, [validateCurrentFields, local, updateFormFields, onGoNext, answers]);
+  }, [validateCurrentFields, local, updateFormFields, onGoNext, answers, currentStep.key]);
 
   const handleContinueClick = useCallback(() => {
     if (continueLocked) return;
@@ -231,7 +241,9 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
         return;
       }
 
-      const name = (allFields.name ?? "").trim();
+      const firstName = (allFields.firstName ?? "").trim();
+      const lastName = (allFields.lastName ?? "").trim();
+      const name = `${firstName} ${lastName}`.trim();
       const phone = normalizePhone(allFields.phone ?? "");
       const email = (allFields.email ?? "").trim().toLowerCase();
       const postcode = (allFields.postcode ?? "").trim().toUpperCase();
@@ -268,10 +280,6 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
         } else {
           const lead: LeadFormData = { name, phone, email, postcode, contactMethod };
           onSubmitted(lead);
-          // Fire confetti after 1.5s delay
-          setTimeout(() => {
-            fireConfetti();
-          }, 1500);
           notifyGhlWebhook({
             ...answers,
             name: lead.name,
@@ -346,7 +354,6 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
             aria-describedby={hasError ? `lead-${field}-error` : undefined}
             className={`${inputClass(hasError)}${meta.uppercase ? " uppercase" : ""}`}
             placeholder={meta.placeholder}
-            autoFocus
           />
         </div>
         {errors[field] && (
@@ -478,7 +485,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
         <form
           noValidate
           onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); handleContinueClick(); }}
-          className="mt-3 grid grid-cols-1 gap-2.5 max-w-xl mx-auto"
+          className={`mt-3 grid gap-2.5 max-w-xl mx-auto ${fields.length === 2 && !fields.includes("contactMethod") ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}
         >
           {fields.map((field) =>
             field === "contactMethod" ? renderContactMethod() : renderField(field)

@@ -3,7 +3,12 @@ import type { LeadFormData } from "@/components/quiz/lead-form";
 
 export type QuizAnswers = Record<string, string>;
 
-export type FormFields = Partial<Omit<LeadFormData, "contactMethod">> & {
+export type FormFields = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+  postcode?: string;
   contactMethod?: "phone" | "email" | "";
 };
 
@@ -36,7 +41,8 @@ function sanitizeFormFields(value: unknown): FormFields {
   if (!value || typeof value !== "object") return {};
   const raw = value as Record<string, unknown>;
   const fields: FormFields = {};
-  if (typeof raw.name === "string" && raw.name.length <= 100) fields.name = raw.name;
+  if (typeof raw.firstName === "string" && raw.firstName.length <= 100) fields.firstName = raw.firstName;
+  if (typeof raw.lastName === "string" && raw.lastName.length <= 100) fields.lastName = raw.lastName;
   if (typeof raw.phone === "string" && raw.phone.length <= 20) fields.phone = raw.phone;
   if (typeof raw.email === "string" && raw.email.length <= 254) fields.email = raw.email;
   if (typeof raw.postcode === "string" && raw.postcode.length <= 8) fields.postcode = raw.postcode;
