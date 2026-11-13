@@ -37,7 +37,6 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
     [options, currentStep.key, onSelectOption],
   );
 
-  // Global keyboard shortcuts: numbers to select, Escape/Backspace to go back
   useQuizKeyboard({
     optionCount: options.length,
     onSelectByIndex: selectByIndex,
@@ -62,97 +61,53 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
     <AnimatePresence mode="wait">
       <motion.div
         key={currentStep.key}
-        initial={{ opacity: 0, x: 24 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -24 }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.3 }}
+        className="px-1 sm:px-4 md:px-12"
       >
-        <div className="relative flex items-center justify-center gap-3 sm:gap-4">
+        <div className="relative flex items-center justify-center gap-2 sm:gap-4">
           {idx > 0 && (
             <motion.button
               type="button"
               disabled={backLocked}
               onClick={handleBackClick}
-              aria-label="Previous question"
               whileHover={backLocked ? {} : { scale: 1.05 }}
               whileTap={backLocked ? {} : { scale: 0.95 }}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-gray-200 bg-white text-brand-700 flex items-center justify-center transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 shrink-0"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-gray-200 bg-white text-[#26472b] flex items-center justify-center transition-all hover:border-green-500 hover:bg-green-50"
+              aria-label="Previous question"
             >
-              <ArrowLeft className="w-3 h-3" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </motion.button>
           )}
-          <motion.h3
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.3 }}
-            className="text-gray-900 font-bold text-sm sm:text-2xl md:text-[27px] leading-snug tracking-tight text-center"
-          >
-            {currentStep.title}
-          </motion.h3>
+          <h3 className="text-[#141414] font-bold text-[18px] sm:text-[22px] md:text-[26px] leading-6 sm:leading-7 md:leading-8.5 tracking-tight text-center">{currentStep.title}</h3>
         </div>
 
-        {currentStep.subtitle && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            className="mt-1.5 text-brand-600 font-semibold text-sm sm:text-base text-center"
+        {/* Options */}
+        <div className="my-2">
+          <motion.div
+            ref={groupRef}
+            role="radiogroup"
+            aria-label={currentStep.title}
+            onKeyDown={handleKeyDown}
+            className={`flex flex-col sm:flex-row gap-2 p-3 sm:p-6 md:p-10 ${currentStep.isStacked ? "flex-col items-stretch" : ""}`}
+            layout
           >
-            {currentStep.subtitle}
-          </motion.p>
-        )}
-
-        <div
-          ref={groupRef}
-          role="radiogroup"
-          aria-label={currentStep.title}
-          onKeyDown={handleKeyDown}
-          className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2"
-        >
-          {options.map((opt, index) => (
-            <OptionButton
-              key={opt.value}
-              value={opt.value}
-              icon={opt.icon}
-              isSelected={selected === opt.value}
-              tabIndex={selected === opt.value || (!selected && index === 0) ? 0 : -1}
-              index={index}
-              showKeyboardHint={hasKeyboard}
-              onClick={(value) => onSelectOption(currentStep.key, value)}
-            />
-          ))}
-        </div>
-
-        {/* Status and keyboard hints */}
-        <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-          <p
-            className={`text-xs font-medium transition-colors duration-200 ${
-              selected ? "text-brand-700" : "text-gray-400"
-            }`}
-            aria-live="polite"
-          >
-            {selected ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
-                Selected: {selected}
-              </span>
-            ) : (
-              "Tap an option to continue"
-            )}
-          </p>
-
-          {hasKeyboard && (
-            <p className="hidden sm:flex items-center gap-2 text-xs text-gray-400" aria-hidden="true">
-              <span className="kbd-hint">1–{options.length}</span>
-              <span>select</span>
-              {idx > 0 && (
-                <>
-                  <span className="kbd-hint">Esc</span>
-                  <span>back</span>
-                </>
-              )}
-            </p>
-          )}
+            {options.map((opt, index) => (
+              <OptionButton
+                key={opt.value}
+                value={opt.value}
+                icon={opt.icon}
+                isSelected={selected === opt.value}
+                tabIndex={selected === opt.value || (!selected && index === 0) ? 0 : -1}
+                index={index}
+                showKeyboardHint={hasKeyboard}
+                isStacked={currentStep.isStacked}
+                onClick={(value) => onSelectOption(currentStep.key, value)}
+              />
+            ))}
+          </motion.div>
         </div>
       </motion.div>
     </AnimatePresence>

@@ -2,7 +2,6 @@
 
 import { forwardRef, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
 
 interface OptionButtonProps {
   value: string;
@@ -11,109 +10,48 @@ interface OptionButtonProps {
   tabIndex: number;
   index?: number;
   showKeyboardHint?: boolean;
+  isStacked?: boolean;
+  disabled?: boolean;
   onClick: (value: string) => void;
 }
 
 const OptionButton = forwardRef<HTMLButtonElement, OptionButtonProps>(function OptionButton(
-  { value, icon, isSelected, tabIndex, index, showKeyboardHint = false, onClick },
+  { value, icon, isSelected, tabIndex, isStacked = false, disabled = false, onClick },
   ref,
 ) {
-  const [locked, setLocked] = useState(false);
   const lockRef = useRef(false);
 
   const handleClick = () => {
-    if (lockRef.current) return;
+    if (lockRef.current || disabled) return;
     lockRef.current = true;
-    setLocked(true);
     onClick(value);
-    setTimeout(() => {
-      lockRef.current = false;
-      setLocked(false);
-    }, 400);
+    setTimeout(() => { lockRef.current = false; }, 400);
   };
+
   return (
     <motion.div
-      className="w-full"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: (index ?? 0) * 0.06, ease: [0.22, 1, 0.36, 1] }}
+      className={`w-full ${isStacked ? "max-w-none flex-1" : ""}`}
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.2 }}
     >
-      <motion.button
+      <button
         ref={ref}
         type="button"
         role="radio"
         aria-checked={isSelected}
         data-option
         tabIndex={tabIndex}
-        disabled={locked}
         onClick={handleClick}
-        whileHover={{ y: -2, scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className={`relative w-full min-h-14 sm:min-h-16 border-2 rounded-2xl bg-white transition-all duration-200 flex items-center gap-3.5 sm:gap-4 p-2 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 focus-visible:border-brand-500 ${
-          isSelected
-            ? "border-brand-500 bg-gradient-to-br from-brand-50 to-brand-100/50 shadow-[0_4px_16px_rgba(46,122,69,0.15)]"
-            : "border-gray-200/80 hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-[0_2px_12px_rgba(46,122,69,0.08)]"
-        }`}
+        disabled={disabled}
+        className={`w-full border-2 rounded-xl bg-white transition-all overflow-hidden ${isSelected ? "border-green-500 bg-green-50 shadow-[0_0_0_3px_rgba(55,202,55,.2)]" : "border-gray-200 hover:border-green-500 hover:bg-green-50/50"} ${isStacked ? "flex flex-row p-3 justify-start gap-3.5" : "h-20 sm:h-24 md:h-28"} ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
       >
-        {/* Icon container with spring animation */}
-        <motion.span
-          aria-hidden="true"
-          animate={isSelected ? { scale: [1, 1.15, 1] } : { scale: 1 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-md flex items-center justify-center shrink-0 transition-all duration-200 ${
-            isSelected
-              ? "bg-brand-600 text-white shadow-[0_4px_12px_rgba(46,122,69,0.3)]"
-              : "bg-brand-50 text-brand-600"
-          }`}
-        >
-          {icon}
-        </motion.span>
-
-        {/* Label */}
-        <span
-          className={`flex-1 font-semibold text-[13px] leading-snug transition-colors duration-200 ${
-            isSelected ? "text-brand-900" : "text-gray-800"
-          }`}
-        >
-          {value}
-        </span>
-
-        {/* Keyboard number hint */}
-        {showKeyboardHint && index !== undefined && index < 9 && (
-          <span className="hidden sm:flex absolute top-2 right-2 kbd-hint" aria-hidden="true">
-            {index + 1}
+        <label className={`flex cursor-pointer ${isStacked ? "flex-row items-center p-3" : "flex-col items-center"}`}>
+          <span className={`rounded-full bg-green-100 text-[#26472b] flex items-center justify-center mb-2 transition-all ${isStacked ? "w-8 h-8 sm:w-10 sm:h-10 mb-0 flex-shrink-0" : "w-8 h-8 sm:w-10 sm:h-10"}`}>
+            {icon}
           </span>
-        )}
-
-        {/* Animated checkmark */}
-        <motion.span
-          aria-hidden="true"
-          initial={false}
-          animate={
-            isSelected
-              ? { scale: [0, 1.2, 1], opacity: 1, rotate: [0, -10, 0] }
-              : { scale: 0, opacity: 0 }
-          }
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-brand-600 text-white shadow-[0_2px_8px_rgba(46,122,69,0.3)]"
-        >
-          <Check className="w-4 h-4" strokeWidth={3} />
-        </motion.span>
-
-        {/* Selection glow effect */}
-        {isSelected && (
-          <motion.span
-            aria-hidden="true"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 rounded-2xl pointer-events-none"
-            style={{
-              boxShadow: "inset 0 0 0 1px rgba(46,122,69,0.1)",
-            }}
-          />
-        )}
-      </motion.button>
+          <span className={`font-bold text-[#141414] ${isStacked ? "text-sm sm:text-base" : "text-xs sm:text-sm"} ${isStacked ? "" : "mt-0"}`}>{value}</span>
+        </label>
+      </button>
     </motion.div>
   );
 });
