@@ -70,11 +70,39 @@ function sanitize(value: unknown, totalSteps: number): Partial<StoredQuiz> | nul
   return Object.keys(clean).length > 0 ? clean : null;
 }
 
-export function useQuizState(totalSteps: number): QuizState {
+/**
+ * stepKeys: for each step index, the key used in `answers` if it's an option-based step,
+ * or null if it's a form step (forms validate their own fields).
+ */
+export function useQuizState(totalSteps: number, stepKeys: (string | null)[]): QuizState {
   const [quiz, setQuiz] = useState<StoredQuiz>(INITIAL);
   // Flips on the first user interaction. Until then the persistence effect must
   // never write, or a fresh mount would clobber saved progress before hydration.
   const touchedRef = useRef(false);
+  // Lock to prevent rapid successive navigation (button spam / double-click)
+  const navLockRef = useRef(false);
+  const navLockTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const acquireNavLock = useCallback((duration = 300) => {
+    if (navLockRef.current) return false;
+    navLockRef.current = true;
+    if (navLockTimeout.current) clearTimeout(navLockTimeout.current);
+    navLockTimeout.current = setTimeout(() => {
+      navLockRef.current = false;
+      navLockTimeout.current = null;
+    }, duration);
+    return true;
+  }, []);
+
+  // Validate that all option-based steps from 0 to idx (inclusive) have answers recorded.
+  // Form steps (null keys) are skipped since they validate their own fields.
+  const canAdvanceFrom = useCallback((idx: number, answers: QuizAnswers): boolean => {
+    for (let i = 0; i <= idx; i++) {
+      const key = stepKeys[i];
+      if (key && !answers[key]) return false;
+    }
+    return true;
+  }, [stepKeys]);
 
   useEffect(() => {
     try {
@@ -103,22 +131,33 @@ export function useQuizState(totalSteps: number): QuizState {
   }, [totalSteps]);
 
   const selectOption = useCallback((key: string, value: string) => {
+    if (!acquireNavLock(500)) return;
     touchedRef.current = true;
     setQuiz((prev) => ({ ...prev, answers: { ...prev.answers, [key]: value } }));
-    setTimeout(() => setQuiz((prev) => ({ ...prev, idx: Math.min(prev.idx + 1, totalSteps - 1) })), 240);
-  }, [totalSteps]);
+    setTimeout(() => setQuiz((prev) => {
+      // Only advance if all option-based steps up to current are answered
+      if (!canAdvanceFrom(prev.idx, prev.answers)) return prev;
+      return { ...prev, idx: Math.min(prev.idx + 1, totalSteps - 1) };
+    }), 240);
+  }, [totalSteps, acquireNavLock, canAdvanceFrom]);
 
   const goNext = useCallback(
     () => {
+      if (!acquireNavLock()) return;
       touchedRef.current = true;
-      setQuiz((prev) => ({ ...prev, idx: Math.min(prev.idx + 1, totalSteps - 1) }));
+      setQuiz((prev) => {
+        // Only advance if all option-based steps up to current are answered
+        if (!canAdvanceFrom(prev.idx, prev.answers)) return prev;
+        return { ...prev, idx: Math.min(prev.idx + 1, totalSteps - 1) };
+      });
     },
-    [totalSteps],
+    [totalSteps, acquireNavLock, canAdvanceFrom],
   );
   const goPrev = useCallback(() => {
+    if (!acquireNavLock()) return;
     touchedRef.current = true;
     setQuiz((prev) => ({ ...prev, idx: Math.max(prev.idx - 1, 0) }));
-  }, []);
+  }, [acquireNavLock]);
   const completeLead = useCallback((submittedLead: LeadFormData) => {
     touchedRef.current = true;
     setQuiz((prev) => ({ ...prev, lead: submittedLead, idx: totalSteps - 1, showCallScreen: false, formFields: {} }));

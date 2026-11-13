@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 
@@ -18,6 +18,19 @@ const OptionButton = forwardRef<HTMLButtonElement, OptionButtonProps>(function O
   { value, icon, isSelected, tabIndex, index, showKeyboardHint = false, onClick },
   ref,
 ) {
+  const [locked, setLocked] = useState(false);
+  const lockRef = useRef(false);
+
+  const handleClick = () => {
+    if (lockRef.current) return;
+    lockRef.current = true;
+    setLocked(true);
+    onClick(value);
+    setTimeout(() => {
+      lockRef.current = false;
+      setLocked(false);
+    }, 400);
+  };
   return (
     <motion.div
       className="w-full"
@@ -32,7 +45,8 @@ const OptionButton = forwardRef<HTMLButtonElement, OptionButtonProps>(function O
         aria-checked={isSelected}
         data-option
         tabIndex={tabIndex}
-        onClick={() => onClick(value)}
+        disabled={locked}
+        onClick={handleClick}
         whileHover={{ y: -2, scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}

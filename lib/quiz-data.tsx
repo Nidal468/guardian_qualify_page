@@ -157,17 +157,9 @@ export const STEPS: StepData[] = [
     step: "12",
     key: "form_postcode",
     title: "What's your property postcode?",
-    pct: 98,
-    isInput: true,
-    inputFields: ["postcode"],
-  },
-  {
-    step: "13",
-    key: "form_contact_method",
-    title: "How would you prefer to be contacted?",
     pct: 100,
     isInput: true,
-    inputFields: ["contactMethod"],
+    inputFields: ["postcode"],
   },
 ];
 

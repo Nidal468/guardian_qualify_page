@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, Loader2, Mail, MapPin, Phone, User } from "lucide-react";
 import confetti from "canvas-confetti";
+import { STEPS, TOTAL_STEPS } from "@/lib/quiz-data";
 import type { StepData } from "@/lib/quiz-data";
 import { useHasPhysicalKeyboard } from "@/lib/use-keyboard-nav";
 import type { FormFields } from "@/lib/use-quiz-state";
@@ -12,6 +13,15 @@ const REQUIRED_ANSWER_KEYS = [
   "first_time", "protection_for", "priority", "alarm",
   "alone_time", "fall_worry", "discreet", "contact_preference",
 ] as const;
+
+const ANSWER_KEY_TITLES: Record<string, string> = Object.fromEntries(
+  STEPS.filter((s) => !s.isInput).map((s) => [s.key, s.title])
+);
+
+function buildMissingAnswersMessage(missingKeys: string[]): string {
+  const titles = missingKeys.map((key) => ANSWER_KEY_TITLES[key] || key);
+  return `Please answer the following before submitting:\n${titles.map((t) => `• ${t}`).join("\n")}`;
+}
 
 export interface LeadFormData {
   name: string;
@@ -109,7 +119,16 @@ const FIELD_META: Record<FieldName, { label: string; placeholder: string; type: 
 
 export default function LeadForm({ currentStep, idx, answers, formFields, updateFormFields, onGoPrev, onGoNext, onSubmitted }: LeadFormProps) {
   const fields = currentStep.inputFields ?? [];
-  const isLastStep = fields.includes("contactMethod");
+  const isLastStep = idx === TOTAL_STEPS - 1;
+  const [backLocked, setBackLocked] = useState(false);
+  const [continueLocked, setContinueLocked] = useState(false);
+
+  const handleBackClick = useCallback(() => {
+    if (backLocked) return;
+    setBackLocked(true);
+    onGoPrev();
+    setTimeout(() => setBackLocked(false), 300);
+  }, [backLocked, onGoPrev]);
 
   // Local state mirrors formFields for the current step's fields so inputs are controlled
   const [local, setLocal] = useState<FormFields>(() => {
@@ -173,10 +192,24 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
     setErrors(fieldErrors);
     if (Object.keys(fieldErrors).length > 0) return;
 
+    // Check if any option-based quiz questions are still unanswered
+    const missingAnswers = REQUIRED_ANSWER_KEYS.filter((key) => !answers[key]);
+    if (missingAnswers.length > 0) {
+      setSubmitError(buildMissingAnswersMessage(missingAnswers));
+      return;
+    }
+
     // Save to shared state
     updateFormFields(local);
     onGoNext();
-  }, [validateCurrentFields, local, updateFormFields, onGoNext]);
+  }, [validateCurrentFields, local, updateFormFields, onGoNext, answers]);
+
+  const handleContinueClick = useCallback(() => {
+    if (continueLocked) return;
+    setContinueLocked(true);
+    handleContinue();
+    setTimeout(() => setContinueLocked(false), 300);
+  }, [continueLocked, handleContinue]);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent) => {
@@ -194,7 +227,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
       // Validate all required quiz answers are present
       const missingAnswers = REQUIRED_ANSWER_KEYS.filter((key) => !answers[key]);
       if (missingAnswers.length > 0) {
-        setSubmitError("Please complete all quiz questions before submitting.");
+        setSubmitError(buildMissingAnswersMessage(missingAnswers));
         return;
       }
 
@@ -202,12 +235,8 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
       const phone = normalizePhone(allFields.phone ?? "");
       const email = (allFields.email ?? "").trim().toLowerCase();
       const postcode = (allFields.postcode ?? "").trim().toUpperCase();
-      const contactMethod = allFields.contactMethod as "phone" | "email";
-
-      if (!contactMethod) {
-        setSubmitError("Please choose how you'd like to be contacted.");
-        return;
-      }
+      // Default to phone since the contact method step was removed
+      const contactMethod: "phone" | "email" = allFields.contactMethod || "phone";
 
       inFlight.current = true;
       setSubmitting(true);
@@ -415,10 +444,11 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
           {idx > 0 && (
             <motion.button
               type="button"
-              onClick={onGoPrev}
+              disabled={backLocked}
+              onClick={handleBackClick}
               aria-label="Previous question"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={backLocked ? {} : { scale: 1.05 }}
+              whileTap={backLocked ? {} : { scale: 0.95 }}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-gray-200 bg-white text-brand-700 flex items-center justify-center transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -447,7 +477,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
 
         <form
           noValidate
-          onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); handleContinue(); }}
+          onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); handleContinueClick(); }}
           className="mt-3 grid grid-cols-1 gap-2.5 max-w-xl mx-auto"
         >
           {fields.map((field) =>
@@ -459,7 +489,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               role="alert"
-              className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-sm sm:text-base font-medium text-red-700"
+              className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-sm sm:text-base font-medium text-red-700 whitespace-pre-line"
             >
               {submitError}
             </motion.div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import type { StepData } from "@/lib/quiz-data";
@@ -20,6 +20,14 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
   const selected = answers[currentStep.key];
   const options = useMemo(() => currentStep.options || [], [currentStep.options]);
   const hasKeyboard = useHasPhysicalKeyboard();
+  const [backLocked, setBackLocked] = useState(false);
+
+  const handleBackClick = useCallback(() => {
+    if (backLocked) return;
+    setBackLocked(true);
+    onGoPrev();
+    setTimeout(() => setBackLocked(false), 300);
+  }, [backLocked, onGoPrev]);
 
   const selectByIndex = useCallback(
     (index: number) => {
@@ -63,10 +71,11 @@ export default function QuizQuestion({ currentStep, idx, answers, onSelectOption
           {idx > 0 && (
             <motion.button
               type="button"
-              onClick={onGoPrev}
+              disabled={backLocked}
+              onClick={handleBackClick}
               aria-label="Previous question"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={backLocked ? {} : { scale: 1.05 }}
+              whileTap={backLocked ? {} : { scale: 0.95 }}
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-gray-200 bg-white text-brand-700 flex items-center justify-center transition-colors hover:border-brand-400 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 shrink-0"
             >
               <ArrowLeft className="w-3 h-3" />

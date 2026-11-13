@@ -75,20 +75,6 @@ export default function DesktopCallUI(props: DesktopCallUIProps) {
             Get instant answers, see if you qualify, and lock in your free
             12-month fixed quote. No waiting for a callback.
           </p>
-          <ul className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs font-medium text-[#526957] md:justify-start">
-            <li className="inline-flex items-center gap-1.5">
-              <Check className="size-3.5 text-[#34733e]" aria-hidden="true" />
-              Free quote
-            </li>
-            <li className="inline-flex items-center gap-1.5">
-              <Check className="size-3.5 text-[#34733e]" aria-hidden="true" />
-              No obligation
-            </li>
-            <li className="inline-flex items-center gap-1.5">
-              <Check className="size-3.5 text-[#34733e]" aria-hidden="true" />
-              In your own time
-            </li>
-          </ul>
         </div>
       </div>
 
