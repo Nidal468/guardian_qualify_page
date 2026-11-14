@@ -117,9 +117,9 @@ const inputClass = (hasError: boolean) =>
 const FIELD_META: Record<FieldName, { label: string; placeholder: string; type: string; autoComplete: string; icon: typeof User; maxLength?: number; inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search"; uppercase?: boolean }> = {
   firstName: { label: "First name", placeholder: "First name", type: "text", autoComplete: "given-name", icon: User, maxLength: 100 },
   lastName: { label: "Last name", placeholder: "Last name", type: "text", autoComplete: "family-name", icon: User, maxLength: 100 },
-  phone: { label: "Phone number", placeholder: "e.g. 07123 456789", type: "tel", autoComplete: "tel", icon: Phone, maxLength: 20, inputMode: "tel" },
+  phone: { label: "Phone number", placeholder: "07…", type: "tel", autoComplete: "tel", icon: Phone, maxLength: 20, inputMode: "tel" },
   email: { label: "Email address", placeholder: "you@example.com", type: "email", autoComplete: "email", icon: Mail, maxLength: 254 },
-  postcode: { label: "Property postcode", placeholder: "e.g. SW1A 1AA", type: "text", autoComplete: "postal-code", icon: MapPin, maxLength: 8, uppercase: true },
+  postcode: { label: "Postcode", placeholder: "e.g. SK8 2GL", type: "text", autoComplete: "postal-code", icon: MapPin, maxLength: 8, uppercase: true },
   contactMethod: { label: "How should we contact you?", placeholder: "", type: "", autoComplete: "", icon: Phone },
 };
 
@@ -522,6 +522,11 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
                 <>
                   Request My Free Assessment
                   <span className="hidden sm:inline text-brand-200 font-normal text-sm ml-1">↵</span>
+                </>
+              ) : currentStep.key === "form_postcode" ? (
+                <>
+                  Check My Area
+                  <span className="hidden sm:inline text-brand-200 font-normal text-sm ml-1">→</span>
                 </>
               ) : (
                 <>

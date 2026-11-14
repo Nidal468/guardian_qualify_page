@@ -11,17 +11,11 @@ interface QuizCardProps {
   children: ReactNode;
 }
 
-const REASSURE_COPY: Record<number, string> = {
-  1: "It only takes about a minute!",
-  2: "50 seconds left…",
-  3: "40 seconds left…",
-  4: "30 seconds left…",
-  5: "20 seconds left…",
-  6: "10 seconds left…",
-};
-
 export default function QuizCard({ pct, isDone, currentStep, totalSteps, children }: QuizCardProps) {
-  const progressNumeric = currentStep || 0;
+  const step = currentStep || 0;
+  const total = totalSteps || 12;
+  const remainingSeconds = Math.round(60 * (total - step + 1) / total);
+  const timerText = remainingSeconds >= 55 ? "It only takes about a minute!" : `${remainingSeconds} seconds left…`;
 
   return (
     <div className="relative w-full max-w-4xl mx-auto bg-white rounded-xl border border-gray-200 shadow-[0_4px_32px_rgba(38,71,43,.14),0_2px_6px_rgba(0,0,0,.04)] p-3 sm:p-6 md:p-11">
@@ -40,7 +34,7 @@ export default function QuizCard({ pct, isDone, currentStep, totalSteps, childre
           <div className="flex items-center justify-center gap-1.5">
             <span className="inline-flex"><Coffee className="w-3.5 h-4 sm:w-[14px] sm:h-[17px]" fill="#26472b" /></span>
             <p className="text-[#272728] text-xs sm:text-sm font-bold m-0">
-              <b>{REASSURE_COPY[progressNumeric] || "It only takes about a minute!"}</b>
+              <b>{timerText}</b>
             </p>
           </div>
         </div>
