@@ -148,15 +148,6 @@ export async function POST(request: Request) {
 
     await ensureLeadStore();
 
-    const since = new Date(Date.now() - DUPLICATE_WINDOW_MS);
-    const duplicate = await Lead.exists({ email, phone, createdAt: { $gte: since } });
-    if (duplicate) {
-      return Response.json(
-        { error: "A request with these details was already received. Our team will be in touch shortly." },
-        { status: 409 },
-      );
-    }
-
     await Lead.create({ name, phone, email, postcode, contactMethod, ...toModelAnswers(answers) });
     return Response.json({ success: true }, { status: 201 });
   } catch (error) {

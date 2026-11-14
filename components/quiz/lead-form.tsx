@@ -87,7 +87,7 @@ function validateField(field: FieldName, value: string): string {
 }
 
 // Same GHL webhook trigger as the Battery 1st qualification quiz.
-const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/mT1ydY9XA0GOQLyWcJWq/webhook-trigger/d9716cb1-9e8e-405f-a533-a9841f16a8fc";
+const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/7jbaAfIqkD2Lq7AwBF76/webhook-trigger/7a8dd080-71ae-4357-8768-5ecfc49ca038";
 
 function fireConfetti() {
   const colors = ["#37ca37", "#26472b", "#ffffff", "#d4b24c"];
