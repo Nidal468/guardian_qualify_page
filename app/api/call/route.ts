@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { backendConfig, notifyConversation, speakText, streamReply } from "@/lib/call/backend";
+import { backendConfig, notifyConversation, speakText, streamReply, synthesizeGuestContactId } from "@/lib/call/backend";
 import { encodeSSE, parseCallInput, parseSessionId, readJson, RequestError, type CallInput } from "@/lib/call/protocol";
 import {
   acquireSession, CallMessage, CallSession, claimMessage, endSession, ensureCallStore,
@@ -48,7 +48,8 @@ export async function POST(req: Request) {
           },
           body: JSON.stringify({
             message: session.initialMessage,
-            contactId: session.contactId,
+            // Guests get a deterministic pseudo id (see synthesizeGuestContactId).
+            contactId: session.contactId || synthesizeGuestContactId(session.userDetails) || undefined,
             contactName: session.contactName,
             conversationId: session.conversationId,
             userDetails: {

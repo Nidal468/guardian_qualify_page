@@ -1,4 +1,18 @@
+import { createHash } from "node:crypto";
 import { readSSE, splitSpeech, type UserDetails } from "./protocol";
+
+/**
+ * Deterministic pseudo contact id for guests (no GHL contact). MUST stay in
+ * sync with the backend's lib/guest-contact.ts so a guest keeps one
+ * conversation across devices and sessions.
+ */
+export function synthesizeGuestContactId(details?: { email?: string; phone?: string } | null): string | null {
+  const email = (details?.email ?? "").trim().toLowerCase();
+  if (email) return `guest:${createHash("sha256").update(`email:${email}`, "utf8").digest("hex").slice(0, 32)}`;
+  const digits = (details?.phone ?? "").replace(/\D/g, "");
+  if (digits.length >= 6) return `guest:${createHash("sha256").update(`phone:${digits}`, "utf8").digest("hex").slice(0, 32)}`;
+  return null;
+}
 
 interface ChatContext {
   contactId?: string;
@@ -168,6 +182,9 @@ export async function streamReply(
               body: JSON.stringify({
                 message,
                 ...context,
+                // Guests get a deterministic pseudo id (same algorithm as the
+                // backend); ghlContactId below stays GHL-only.
+                contactId: context.contactId || synthesizeGuestContactId(context.userDetails) || undefined,
                 conversationId,
                 userDetails: {
                   id: context.contactId || "",
