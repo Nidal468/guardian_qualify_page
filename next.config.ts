@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
     ];
   },
   experimental: {
+    // This Next.js build defaults the interactive agent upgrade prompt to
+    // 'security', which stops unattended `next dev` runs (CI, benchmark
+    // harnesses). The advisory itself is still surfaced by `next upgrade`.
+    agentUpgrade: false,
     agentFeedback: true,
   },
   cacheComponents: true,
