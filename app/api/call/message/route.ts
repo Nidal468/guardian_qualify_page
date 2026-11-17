@@ -2,10 +2,21 @@ import { randomUUID } from "node:crypto";
 import { callErrorDetails, logCallDiagnostic } from "@/lib/call/diagnostics";
 import { parseMessageInput, readJson, RequestError } from "@/lib/call/protocol";
 import { enqueueMessage, ensureCallStore } from "@/lib/call/store";
+import { clientIp, slidingWindowLimit } from "@/lib/rate-limit";
+
+const MESSAGE_RATE_LIMIT_MAX = 20;
+const MESSAGE_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 export async function POST(req: Request) {
   const requestId = randomUUID();
   const startedAt = Date.now();
+  const limit = slidingWindowLimit(`call-message:${clientIp(req)}`, MESSAGE_RATE_LIMIT_MAX, MESSAGE_RATE_LIMIT_WINDOW_MS);
+  if (!limit.allowed) {
+    return Response.json(
+      { error: "Too many messages from your connection. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "X-Call-Request-Id": requestId, "Cache-Control": "no-store" } },
+    );
+  }
   let stage = "parse-request";
   let turnId: string | undefined;
   try {

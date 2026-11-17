@@ -6,8 +6,14 @@ import {
   IDLE_MS, LEASE_MS, openCallChanges, releaseSession, warmCallStore,
 } from "@/lib/call/store";
 import { Wakeup } from "@/lib/call/wakeup";
+import { clientIp, slidingWindowLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 300;
+
+// New-session limit per IP. Reconnects (existing sessionId) are exempt: the
+// audit limit is on NEW sessions, not on reconnect attempts of a live call.
+const CALL_RATE_LIMIT_MAX = 3;
+const CALL_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 // Pre-warm MongoDB connection at module load time so the first request
 // doesn't pay the ~3.7s connection + index creation cost.
@@ -28,6 +34,15 @@ export async function POST(req: Request) {
   let input: CallInput | undefined;
   try {
     input = parseCallInput(await readJson(req));
+    if (!input.sessionId) {
+      const limit = slidingWindowLimit(`call:${clientIp(req)}`, CALL_RATE_LIMIT_MAX, CALL_RATE_LIMIT_WINDOW_MS);
+      if (!limit.allowed) {
+        return Response.json(
+          { error: "Too many new calls from your connection. Please try again later.", sessionId: null },
+          { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds), "X-Call-Request-Id": requestId } },
+        );
+      }
+    }
     backendConfig();
     await ensureCallStore();
     controller.signal.throwIfAborted();
