@@ -141,6 +141,17 @@ export async function streamReply(
     let pendingSpeech = "";
     let finished = false;
     let streamStage = "init";
+    const perfStart = performance.now();
+    let firstMetaAt: number | null = null;
+    let firstDeltaAt: number | null = null;
+    const perfLog = (stage: string, extra?: Record<string, unknown>) => {
+      console.log(`[Call perf] ai.stream ${stage}`, {
+        elapsedMs: Math.round(performance.now() - perfStart),
+        conversationId: conversationId ?? null,
+        attempt: attempt + 1,
+        ...extra,
+      });
+    };
 
     try {
       streamStage = "fetch";
@@ -172,6 +183,8 @@ export async function streamReply(
             });
           })();
 
+      perfLog("response.headers", { status: response.status });
+
       if (!response.ok || !response.body) {
         throw new Error(`The advisor service is temporarily unavailable (HTTP ${response.status})`);
       }
@@ -192,9 +205,24 @@ export async function streamReply(
         if (event.event === "meta" && typeof data.conversationId === "string" && !conversationId) {
           if (data.conversationId.length > 128) throw new Error("Invalid conversation identifier");
           conversationId = data.conversationId;
+          firstMetaAt = performance.now();
+          perfLog("first.meta", {});
           await callbacks.onConversation(conversationId);
         }
+        if (event.event === "timing") {
+          // Backend-side stage breakdown (setup/workflow/model TTFT/stream).
+          console.log(`[Call perf] ai.backend-timing`, {
+            elapsedMs: Math.round(performance.now() - perfStart),
+            conversationId: conversationId ?? null,
+            attempt: attempt + 1,
+            ...(data as Record<string, unknown>),
+          });
+        }
         if (event.event === "delta" && typeof data.text === "string") {
+          if (firstDeltaAt === null) {
+            firstDeltaAt = performance.now();
+            perfLog("first.delta", {});
+          }
           fullText += data.text;
           pendingSpeech += data.text;
           if (fullText.length > 12_000) throw new Error("The advisor response is too long");
@@ -205,7 +233,10 @@ export async function streamReply(
             const boundary = segments[segments.length - 1].index;
             if (boundary >= 80) {
               streamStage = "tts";
-              await speakText(pendingSpeech.slice(0, boundary), timedSignal, callbacks, conversationId);
+              const ttsStart = performance.now();
+              const chunkText = pendingSpeech.slice(0, boundary);
+              await speakText(chunkText, timedSignal, callbacks, conversationId);
+              perfLog("tts.chunk", { chars: chunkText.length, ttsMs: Math.round(performance.now() - ttsStart) });
               streamStage = "read-sse";
               pendingSpeech = pendingSpeech.slice(boundary);
             }
@@ -218,10 +249,13 @@ export async function streamReply(
         throw new Error("The advisor response was interrupted");
       }
 
+      perfLog("stream.done", { textChars: fullText.length });
       await callbacks.onReply?.(fullText);
       if (pendingSpeech.trim()) {
         streamStage = "tts-final";
+        const ttsStart = performance.now();
         await speakText(pendingSpeech, timedSignal, callbacks, conversationId);
+        perfLog("tts.final", { chars: pendingSpeech.length, ttsMs: Math.round(performance.now() - ttsStart) });
       }
 
       if (attempt > 0) {
