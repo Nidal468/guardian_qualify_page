@@ -1,41 +1,64 @@
 import { Lead, ensureLeadStore, type LeadRecord } from "@/db/models/lead";
+import { clientIp, slidingWindowLimit } from "@/lib/rate-limit";
 import { readJson, RequestError } from "@/lib/call/protocol";
 import { STEPS } from "@/lib/quiz-data";
 
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const RATE_LIMIT_MAX = 5;
+const LEADS_RATE_LIMIT_MAX = 5;
+const LEADS_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const WEBHOOK_TIMEOUT_MS = 5_000;
+const WEBHOOK_RETRY_DELAY_MS = 10_000;
 
-const attemptsByIp = new Map<string, number[]>();
+export type LeadDelivery = "delivered" | "pending" | "failed" | "skipped";
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim().slice(0, 64);
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return realIp.trim().slice(0, 64);
-  return "unknown";
+function webhookUrl(): string | null {
+  const url = process.env.GHL_LEAD_WEBHOOK_URL;
+  if (!url) return null;
+  if (!/^https?:\/\//.test(url)) {
+    console.warn("[Leads] GHL_LEAD_WEBHOOK_URL is set but not an http(s) URL; skipping CRM delivery");
+    return null;
+  }
+  return url;
 }
 
-function rateLimit(ip: string): boolean {
-  if (attemptsByIp.size > 10_000) {
-    const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
-    for (const [key, timestamps] of attemptsByIp) {
-      const fresh = timestamps.filter((ts) => ts > cutoff);
-      if (fresh.length === 0) attemptsByIp.delete(key);
-      else attemptsByIp.set(key, fresh);
-    }
-  }
-  const now = Date.now();
-  const windowStart = now - RATE_LIMIT_WINDOW_MS;
-  let attempts = attemptsByIp.get(ip) ?? [];
-  attempts = attempts.filter((ts) => ts > windowStart);
-  if (attempts.length >= RATE_LIMIT_MAX) {
-    attemptsByIp.set(ip, attempts);
+async function postWebhook(url: string, payload: Record<string, unknown>): Promise<boolean> {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch (error) {
+    console.warn("[Leads] GHL webhook request failed", { error: error instanceof Error ? error.message : String(error) });
     return false;
   }
-  attempts.push(now);
-  attemptsByIp.set(ip, attempts);
-  return true;
+}
+
+async function deliverLeadWebhook(leadId: string, payload: Record<string, unknown>): Promise<LeadDelivery> {
+  const url = webhookUrl();
+  if (!url) {
+    console.log("[Leads] GHL_LEAD_WEBHOOK_URL not set; skipping CRM delivery", { leadId });
+    return "skipped";
+  }
+  if (await postWebhook(url, payload)) {
+    console.log("[Leads] delivered to GHL webhook", { leadId });
+    return "delivered";
+  }
+  // At-least-once: one background retry after a short delay. The response is
+  // already sent, so the timer must not keep the server alive on its own.
+  console.warn("[Leads] GHL webhook delivery failed; scheduling one background retry", { leadId });
+  const timer = setTimeout(() => {
+    void (async () => {
+      const ok = await postWebhook(url, payload);
+      if (ok) console.log("[Leads] GHL webhook delivered on retry", { leadId });
+      else console.error("[Leads] GHL webhook delivery failed after retry; lead stored locally only", { leadId });
+    })();
+  }, WEBHOOK_RETRY_DELAY_MS);
+  (timer as { unref?: () => void }).unref?.();
+  return "pending";
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -126,8 +149,12 @@ function toModelAnswers(answers: Record<(typeof ANSWER_KEYS)[number], string>): 
 
 export async function POST(request: Request) {
   const ip = clientIp(request);
-  if (!rateLimit(ip)) {
-    return Response.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+  const limit = slidingWindowLimit(`leads:${ip}`, LEADS_RATE_LIMIT_MAX, LEADS_RATE_LIMIT_WINDOW_MS);
+  if (!limit.allowed) {
+    return Response.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   let name = "";
@@ -148,8 +175,26 @@ export async function POST(request: Request) {
 
     await ensureLeadStore();
 
-    await Lead.create({ name, phone, email, postcode, contactMethod, ...toModelAnswers(answers) });
-    return Response.json({ success: true }, { status: 201 });
+    const duplicateSince = new Date(Date.now() - DUPLICATE_WINDOW_MS);
+    const existing = await Lead.findOne({ email, phone }).sort({ createdAt: -1 }).lean();
+    if (existing && existing.createdAt >= duplicateSince) {
+      console.log("[Leads] duplicate submission within 24h; skipping insert and CRM delivery", { leadId: String(existing._id), ip });
+      return Response.json({ success: true, duplicate: true, delivery: "skipped" }, { status: 200 });
+    }
+
+    const created = await Lead.create({ name, phone, email, postcode, contactMethod, ...toModelAnswers(answers) });
+    const leadId = String(created._id);
+    const payload: Record<string, string> = {
+      ...answers,
+      name,
+      phone,
+      email,
+      postcode,
+      contact_method: contactMethod,
+      source: "guardian1st",
+    };
+    const delivery = await deliverLeadWebhook(leadId, payload);
+    return Response.json({ success: true, duplicate: false, delivery }, { status: 201 });
   } catch (error) {
     if (error instanceof RequestError) {
       console.warn(`[Leads] rejected request from ${ip}`, { status: error.status, reason: error.message });

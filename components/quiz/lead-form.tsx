@@ -8,6 +8,7 @@ import { STEPS, TOTAL_STEPS } from "@/lib/quiz-data";
 import type { StepData } from "@/lib/quiz-data";
 import { useHasPhysicalKeyboard } from "@/lib/use-keyboard-nav";
 import type { FormFields } from "@/lib/use-quiz-state";
+import type { LeadDelivery } from "@/app/api/leads/route";
 
 const REQUIRED_ANSWER_KEYS = [
   "first_time", "protection_for", "priority", "alarm",
@@ -86,25 +87,12 @@ function validateField(field: FieldName, value: string): string {
   }
 }
 
-// Same GHL webhook trigger as the Battery 1st qualification quiz.
-const GHL_WEBHOOK_URL = "https://services.leadconnectorhq.com/hooks/7jbaAfIqkD2Lq7AwBF76/webhook-trigger/7a8dd080-71ae-4357-8768-5ecfc49ca038";
-
 function fireConfetti() {
   const colors = ["#37ca37", "#26472b", "#ffffff", "#d4b24c"];
   confetti({ spread: 70, ticks: 240, gravity: 0.85, decay: 0.94, startVelocity: 38, colors, scalar: 0.9 });
   setTimeout(() => {
     confetti({ spread: 100, particleCount: 30, angle: 90, origin: { x: 0.5, y: 0.6 }, scalar: 1.0, colors });
   }, 180);
-}
-
-function notifyGhlWebhook(payload: Record<string, string>) {
-  fetch(GHL_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }).catch((error) => {
-    console.error("Failed to submit form data:", error);
-  });
 }
 
 const inputClass = (hasError: boolean) =>
@@ -268,6 +256,8 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
         const data = (await response.json().catch(() => ({}))) as {
           error?: string;
           fieldErrors?: FieldErrors;
+          duplicate?: boolean;
+          delivery?: LeadDelivery;
         };
         if (!response.ok) {
           if (data.fieldErrors && Object.keys(data.fieldErrors).length > 0) {
@@ -279,15 +269,10 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
           );
         } else {
           const lead: LeadFormData = { name, phone, email, postcode, contactMethod };
+          if (data.delivery === "pending") {
+            console.warn("Lead saved; CRM delivery is pending a background retry.", { duplicate: data.duplicate });
+          }
           onSubmitted(lead);
-          notifyGhlWebhook({
-            ...answers,
-            name: lead.name,
-            phone: lead.phone,
-            email: lead.email,
-            postcode: lead.postcode,
-            contact_method: lead.contactMethod,
-          });
         }
       } catch {
         setSubmitError("Something went wrong sending your request. Please check your connection and try again.");
