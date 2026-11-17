@@ -53,6 +53,16 @@ export function backendConfig() {
   };
 }
 
+/**
+ * Minimum completed speech (chars) to accumulate before TTS starts mid-stream.
+ * Lower values reduce time-to-first-audio at the cost of more, shorter clips.
+ * Tuned via SPEECH_BOUNDARY_CHARS (default 40).
+ */
+function speechBoundaryChars(): number {
+  const raw = Number(process.env.SPEECH_BOUNDARY_CHARS);
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 40;
+}
+
 async function tts(
   text: string,
   signal: AbortSignal,
@@ -168,6 +178,7 @@ export async function streamReply(
     };
 
     try {
+      const boundaryChars = speechBoundaryChars();
       streamStage = "fetch";
       const response = preFetchedResponse && attempt === 0
         ? await preFetchedResponse
@@ -248,7 +259,7 @@ export async function streamReply(
           const segments = [...new Intl.Segmenter("en", { granularity: "sentence" }).segment(pendingSpeech)];
           if (conversationId && segments.length > 1) {
             const boundary = segments[segments.length - 1].index;
-            if (boundary >= 80) {
+            if (boundary >= boundaryChars) {
               streamStage = "tts";
               const ttsStart = performance.now();
               const chunkText = pendingSpeech.slice(0, boundary);
