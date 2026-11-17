@@ -372,11 +372,14 @@ export async function POST(req: Request) {
         
         if (!controller.signal.aborted) {
           const restart = !currentSession.greetingComplete && !currentSession.greetingText;
-          if (restart) await endSession(currentSession.sessionId).catch(() => {});
+          // Send the error BEFORE endSession: its status change reaches the
+          // change-stream monitor, which aborts this request and would drop
+          // a later send() (clients saw "ended" with no error on TTS failures).
           await send("error", {
             fatal: true, restart,
             message: restart ? "The greeting was interrupted. Please start a new call." : "Call connection failed. End the call or retry the connection.",
           }).catch(() => {});
+          if (restart) await endSession(currentSession.sessionId).catch(() => {});
         }
       } finally {
         console.log(`[Call] Stream cleanup`, {
