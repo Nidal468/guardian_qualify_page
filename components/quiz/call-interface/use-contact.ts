@@ -60,7 +60,7 @@ export function useContact(email?: string) {
         if (!controller.signal.aborted) {
           setState({
             email, status: "error", contactId: null,
-            error: "Your contact is not ready yet. Retry setup or talk without linking your contact.",
+            error: "We couldn't set up your contact profile just now. Retry, or continue the call without linking your contact.",
           });
         }
       }

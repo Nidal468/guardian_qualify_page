@@ -310,18 +310,25 @@ export async function streamReply(
   throw lastError ?? new Error("AI stream failed after retries");
 }
 
-const DEFAULT_WEBHOOK = "https://services.leadconnectorhq.com/hooks/mT1ydY9XA0GOQLyWcJWq/webhook-trigger/4ba3a403-9e74-464e-9291-31d84d7e4450";
+let webhookDisabledLogged = false;
 
 export async function notifyConversation(
   contactId: string,
   conversationId: string,
   signal: AbortSignal,
 ): Promise<boolean> {
-  // An explicitly empty CALL_WEBHOOK_URL disables the CRM webhook entirely;
-  // it must never fall back to the default (which belongs to another project).
-  if (process.env.CALL_WEBHOOK_URL === "") return false;
+  const url = process.env.CALL_WEBHOOK_URL;
+  if (!url) {
+    // Unset or explicitly empty disables notifications (fail closed); the old
+    // cross-project default must never be used.
+    if (!webhookDisabledLogged) {
+      webhookDisabledLogged = true;
+      console.log("[Call] CALL_WEBHOOK_URL is unset or empty; conversation notifications are disabled");
+    }
+    return false;
+  }
   try {
-    const response = await fetch(process.env.CALL_WEBHOOK_URL || DEFAULT_WEBHOOK, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": `${contactId}:${conversationId}` },
       body: JSON.stringify({ contactId, conversationId }),
