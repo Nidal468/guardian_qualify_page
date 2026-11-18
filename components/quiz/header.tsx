@@ -10,7 +10,7 @@ export default function QuizHeader() {
           </Link>
         </div>
         <div className="text-[#26472b] font-bold text-sm hidden md:block">
-          <b>Free, No-Obligation Home Assessments</b>
+          <b>Free, No-Obligation Home Audits</b>
         </div>
       </div>
     </header>

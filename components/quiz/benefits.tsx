@@ -7,7 +7,7 @@ const BENEFITS = [
   {
     icon: ClipboardCheck,
     title: "No Upfront Pressure",
-    body: "Start with a free home assessment. We'll design the right protection around your home and your family — with a free, personalised, no-obligation quotation.",
+    body: "Start with a free home audit. We'll design the right protection around your home and your family — with a free, personalised, no-obligation quotation.",
   },
   {
     icon: EyeOff,
@@ -17,7 +17,7 @@ const BENEFITS = [
   {
     icon: Layers,
     title: "With Or Without Either Service",
-    body: "Start with home security, personal safety, or both. Add the other later if your needs change. Our assessments are free and you're under no obligation.",
+    body: "Start with home security, personal safety, or both. Add the other later if your needs change. Our audits are free and you're under no obligation.",
   },
 ];
 

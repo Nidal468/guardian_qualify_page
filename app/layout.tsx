@@ -3,12 +3,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://qualify.guardian1st.io"),
-  title: "Guardian 1st | Free Home Protection Assessment",
+  title: "Guardian 1st | Free Home Protection Audit",
   description:
-    "Find out whether home security, personal safety, or both are right for your home. Start with a free, no-obligation home assessment from Guardian 1st.",
+    "Find out whether home security, personal safety, or both are right for your home. Start with a free, no-obligation home audit from Guardian 1st.",
   alternates: { canonical: "https://qualify.guardian1st.io" },
   openGraph: {
-    title: "Guardian 1st | Free Home Protection Assessment",
+    title: "Guardian 1st | Free Home Protection Audit",
     description:
       "Answer a few quick questions and get a free, no-obligation home protection recommendation from Guardian 1st.",
     url: "https://qualify.guardian1st.io",
@@ -34,9 +34,9 @@ const jsonLd = {
       "@type": "WebPage",
       "@id": "https://qualify.guardian1st.io/#webpage",
       url: "https://qualify.guardian1st.io",
-      name: "Free Home Protection Assessment",
+      name: "Free Home Protection Audit",
       description:
-        "A short qualification quiz that recommends home security and personal safety protection, followed by a free, no-obligation home assessment.",
+        "A short qualification quiz that recommends home security and personal safety protection, followed by a free, no-obligation home audit.",
       publisher: { "@id": "https://qualify.guardian1st.io/#organization" },
     },
   ],

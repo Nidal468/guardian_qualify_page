@@ -116,6 +116,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
   const isLastStep = idx === TOTAL_STEPS - 1;
   const [backLocked, setBackLocked] = useState(false);
   const [continueLocked, setContinueLocked] = useState(false);
+  const [postcodeCheckState, setPostcodeCheckState] = useState<null | "loading" | "success">(null);
 
   const handleBackClick = useCallback(() => {
     if (backLocked) return;
@@ -155,6 +156,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
     setLocal(next);
     setErrors({});
     setSubmitError("");
+    setPostcodeCheckState(null);
   }, [currentStep.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refs for keyboard navigation
@@ -195,10 +197,20 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
 
     // Save to shared state
     updateFormFields(local);
-    // Fire confetti when postcode step is completed
+
+    // Postcode checking flow: show loading, then success with confetti, then proceed
     if (currentStep.key === "form_postcode") {
-      fireConfetti();
+      setPostcodeCheckState("loading");
+      setTimeout(() => {
+        setPostcodeCheckState("success");
+        fireConfetti();
+        setTimeout(() => {
+          onGoNext();
+        }, 1800);
+      }, 1500);
+      return;
     }
+
     onGoNext();
   }, [validateCurrentFields, local, updateFormFields, onGoNext, answers, currentStep.key]);
 
@@ -423,6 +435,56 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
     );
   };
 
+  // Postcode checking overlay
+  if (currentStep.key === "form_postcode" && postcodeCheckState) {
+    return (
+      <motion.div
+        key="postcode-check"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col items-center justify-center py-10 text-center"
+      >
+        {postcodeCheckState === "loading" ? (
+          <>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+              className="w-12 h-12 rounded-full border-4 border-gray-200 border-t-brand-500 mb-5"
+            />
+            <motion.h3
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-gray-900 font-bold text-xl sm:text-2xl"
+            >
+              Checking your postcode…
+            </motion.h3>
+          </>
+        ) : (
+          <>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="w-16 h-16 rounded-full bg-brand-500 flex items-center justify-center mb-5"
+            >
+              <Check className="w-8 h-8 text-white" strokeWidth={3} />
+            </motion.div>
+            <motion.h3
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="text-gray-900 font-bold text-xl sm:text-2xl"
+            >
+              Your postcode is covered!
+            </motion.h3>
+          </>
+        )}
+      </motion.div>
+    );
+  }
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -470,7 +532,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
         <form
           noValidate
           onSubmit={isLastStep ? handleSubmit : (e) => { e.preventDefault(); handleContinueClick(); }}
-          className={`mt-3 grid gap-2.5 max-w-xl mx-auto ${fields.length === 2 && !fields.includes("contactMethod") ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}
+          className="mt-3 grid gap-3 max-w-xl mx-auto grid-cols-1"
         >
           {fields.map((field) =>
             field === "contactMethod" ? renderContactMethod() : renderField(field)
@@ -505,7 +567,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
                 </>
               ) : isLastStep ? (
                 <>
-                  Request My Free Assessment
+                  Request My Free Audit
                   <span className="hidden sm:inline text-brand-200 font-normal text-sm ml-1">↵</span>
                 </>
               ) : currentStep.key === "form_postcode" ? (
@@ -529,7 +591,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
           </motion.div>
 
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="text-center text-xs sm:text-sm text-gray-400 leading-snug mt-1">
-            We'll only use your details to arrange your free home assessment. See our{" "}
+            We'll only use your details to arrange your free home audit. See our{" "}
             <a
               href="https://guardian1st.io/privacy"
               target="_blank"

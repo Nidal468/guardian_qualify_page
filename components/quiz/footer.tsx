@@ -35,13 +35,13 @@ export default function QuizFooter() {
 
         <div className="hidden sm:block sm:mt-6 sm:space-y-3 sm:border-t sm:border-white/10 sm:pt-6">
           <p className="text-brand-200/60 text-xs leading-relaxed max-w-2xl">
-            The home assessment and quotation are free, with no obligation to proceed. What we recommend depends on your property, household and priorities.
+            The home audit and quotation are free, with no obligation to proceed. What we recommend depends on your property, household and priorities.
           </p>
           <p className="text-brand-200/60 text-xs leading-relaxed max-w-2xl">
             Safety technology is designed to help identify potential concerns, such as possible falls or unusual inactivity. No system can guarantee that every event will be detected or prevented, and this is not a medical diagnosis.
           </p>
           <p className="text-brand-200/60 text-xs leading-relaxed max-w-2xl">
-            All systems are subject to home assessment and site suitability.
+            All systems are subject to home audit and site suitability.
           </p>
         </div>
       </div>

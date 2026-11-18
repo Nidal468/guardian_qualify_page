@@ -140,7 +140,7 @@ export const STEPS: StepData[] = [
   {
     step: "10",
     key: "form_name",
-    title: "What's your name?",
+    title: "What should we call you?",
     pct: 94,
     isInput: true,
     inputFields: ["firstName", "lastName"],
@@ -148,7 +148,7 @@ export const STEPS: StepData[] = [
   {
     step: "11",
     key: "form_email",
-    title: "What's your email address?",
+    title: "Where should we send your audit results?",
     pct: 96,
     isInput: true,
     inputFields: ["email"],
@@ -156,7 +156,7 @@ export const STEPS: StepData[] = [
   {
     step: "12",
     key: "form_phone",
-    title: "What's your phone number?",
+    title: "What's the best way to reach you?",
     pct: 100,
     isInput: true,
     inputFields: ["phone"],

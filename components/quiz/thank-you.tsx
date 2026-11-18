@@ -118,7 +118,7 @@ export default function ThankYou({ name, phone, email, onProceedToCall }: ThankY
           Thank you{firstName ? `, ${firstName}` : ""}!
         </h3>
         <p className="mt-1 text-gray-500 text-xs sm:text-sm leading-snug">
-          Your free home assessment request has been received.
+          Your free home audit request has been received.
         </p>
       </motion.div>
 

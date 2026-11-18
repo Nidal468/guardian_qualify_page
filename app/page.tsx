@@ -7,6 +7,7 @@ import QuizQuestion from "@/components/quiz/question";
 import LeadForm from "@/components/quiz/lead-form";
 import ThankYou from "@/components/quiz/thank-you";
 import CallScreen from "@/components/quiz/call-screen";
+import PeaceOfMind from "@/components/quiz/peace-of-mind";
 import { STEPS, TOTAL_STEPS } from "@/lib/quiz-data";
 import { useQuizState } from "@/lib/use-quiz-state";
 
@@ -24,6 +25,7 @@ export default function Home() {
       <div className="flex-1 flex flex-col items-center justify-between w-full space-y-4 sm:space-y-6 md:space-y-10 bg-[#fafafa]">
         <div className="w-full">
           {quiz.idx === 0 && !submitted && <QuizHeading />}
+          {quiz.idx === 0 && !submitted && <PeaceOfMind />}
           <section className="lead-steps bg-[#fafafa] p-4" id="contactForm">
             <div className="flex flex-col">
               <QuizCard
@@ -72,9 +74,9 @@ export default function Home() {
         <div className="w-full bg-white py-6 sm:py-8 px-4">
           <div className="max-w-[900px] mx-auto text-center text-gray-500 text-xs leading-relaxed space-y-2">
             <p>&copy; 2026 Home 1st Group Ltd. All rights reserved.</p>
-            <p>The home assessment and quotation are free, with no obligation to proceed. What we recommend depends on your property, household and priorities.</p>
+            <p>The home audit and quotation are free, with no obligation to proceed. What we recommend depends on your property, household and priorities.</p>
             <p>Safety technology is designed to help identify potential concerns, such as possible falls or unusual inactivity. No system can guarantee that every event will be detected or prevented, and this is not a medical diagnosis.</p>
-            <p>All systems are subject to home assessment and site suitability.</p>
+            <p>All systems are subject to home audit and site suitability.</p>
             <p>
               <a href="https://guardian1st.io/privacy" target="_blank" rel="noopener noreferrer" className="text-[#26472b] underline hover:no-underline">Privacy Policy</a>
               {" | "}
