@@ -25,7 +25,8 @@ function buildMissingAnswersMessage(missingKeys: string[]): string {
 }
 
 export interface LeadFormData {
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email: string;
   postcode: string;
@@ -243,7 +244,6 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
 
       const firstName = (allFields.firstName ?? "").trim();
       const lastName = (allFields.lastName ?? "").trim();
-      const name = `${firstName} ${lastName}`.trim();
       const phone = normalizePhone(allFields.phone ?? "");
       const email = (allFields.email ?? "").trim().toLowerCase();
       const postcode = (allFields.postcode ?? "").trim().toUpperCase();
@@ -257,7 +257,8 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name,
+            firstName,
+            lastName,
             phone,
             email,
             postcode,
@@ -280,7 +281,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
             data.error || "Something went wrong sending your request. Please try again.",
           );
         } else {
-          const lead: LeadFormData = { name, phone, email, postcode, contactMethod };
+          const lead: LeadFormData = { firstName, lastName, phone, email, postcode, contactMethod };
           if (data.delivery === "pending") {
             console.warn("Lead saved; CRM delivery is pending a background retry.", { duplicate: data.duplicate });
           }

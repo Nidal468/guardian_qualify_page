@@ -35,10 +35,11 @@ export default function Home() {
               >
                 {submitted && quiz.lead ? (
                   quiz.showCallScreen ? (
-                    <CallScreen name={quiz.lead.name} phone={quiz.lead.phone} email={quiz.lead.email} />
+                    <CallScreen firstName={quiz.lead.firstName} lastName={quiz.lead.lastName} phone={quiz.lead.phone} email={quiz.lead.email} />
                   ) : (
                     <ThankYou
-                      name={quiz.lead.name}
+                      firstName={quiz.lead.firstName}
+                      lastName={quiz.lead.lastName}
                       phone={quiz.lead.phone}
                       email={quiz.lead.email}
                       onProceedToCall={quiz.goToCallScreen}

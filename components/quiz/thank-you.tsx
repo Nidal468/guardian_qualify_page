@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { CalendarCheck, ClipboardList, PhoneCall, ShieldCheck, Sparkles } from "lucide-react";
 
 interface ThankYouProps {
-  name: string;
+  firstName: string;
+  lastName: string;
   phone?: string;
   email?: string;
   onProceedToCall: () => void;
@@ -94,9 +95,9 @@ function NextSteps() {
   );
 }
 
-export default function ThankYou({ name, phone, email, onProceedToCall }: ThankYouProps) {
-  const [first] = name.trim().split(/\s+/);
-  const firstName = first || undefined;
+export default function ThankYou({ firstName, lastName, phone, email, onProceedToCall }: ThankYouProps) {
+  const displayName = firstName || undefined;
+  void lastName; // available for future use
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -115,7 +116,7 @@ export default function ThankYou({ name, phone, email, onProceedToCall }: ThankY
         transition={{ delay: 0.5, duration: 0.4 }}
       >
         <h3 className="mt-2 text-base sm:text-lg font-bold text-gray-900">
-          Thank you{firstName ? `, ${firstName}` : ""}!
+          Thank you{displayName ? `, ${displayName}` : ""}!
         </h3>
         <p className="mt-1 text-gray-500 text-xs sm:text-sm leading-snug">
           Your free home audit request has been received.

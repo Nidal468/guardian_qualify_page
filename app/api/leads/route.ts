@@ -68,10 +68,16 @@ function text(value: unknown, key: string, max: number): string {
   return value.trim();
 }
 
-function validateName(raw: unknown): string {
-  const name = text(raw, "name", 200);
-  if (name.length < 2 || name.length > 100) throw new RequestError(400, "Invalid name");
-  return name;
+function validateFirstName(raw: unknown): string {
+  const firstName = text(raw, "firstName", 100);
+  if (firstName.length < 2 || firstName.length > 100) throw new RequestError(400, "Invalid firstName");
+  return firstName;
+}
+
+function validateLastName(raw: unknown): string {
+  const lastName = text(raw, "lastName", 100);
+  if (lastName.length < 2 || lastName.length > 100) throw new RequestError(400, "Invalid lastName");
+  return lastName;
 }
 
 /** Returns the canonical digit form used for storage and duplicate matching. */
@@ -157,7 +163,8 @@ export async function POST(request: Request) {
     );
   }
 
-  let name = "";
+  let firstName = "";
+  let lastName = "";
   let phone = "";
   let email = "";
   let postcode = "";
@@ -166,7 +173,8 @@ export async function POST(request: Request) {
 
   try {
     const body = (await readJson(request)) as Record<string, unknown>;
-    name = validateName(body.name);
+    firstName = validateFirstName(body.firstName);
+    lastName = validateLastName(body.lastName);
     phone = validatePhone(body.phone);
     email = validateEmail(body.email);
     postcode = validatePostcode(body.postcode);
@@ -182,11 +190,12 @@ export async function POST(request: Request) {
       return Response.json({ success: true, duplicate: true, delivery: "skipped" }, { status: 200 });
     }
 
-    const created = await Lead.create({ name, phone, email, postcode, contactMethod, ...toModelAnswers(answers) });
+    const created = await Lead.create({ firstName, lastName, phone, email, postcode, contactMethod, ...toModelAnswers(answers) });
     const leadId = String(created._id);
     const payload: Record<string, string> = {
       ...answers,
-      name,
+      firstName,
+      lastName,
       phone,
       email,
       postcode,
@@ -200,7 +209,7 @@ export async function POST(request: Request) {
       console.warn(`[Leads] rejected request from ${ip}`, { status: error.status, reason: error.message });
       return Response.json({ error: error.message }, { status: error.status });
     }
-    console.error("[Leads] failed to save lead", { name: Boolean(name), email: Boolean(email) });
+    console.error("[Leads] failed to save lead", { firstName: Boolean(firstName), lastName: Boolean(lastName), email: Boolean(email) });
     return Response.json(
       { error: "Something went wrong saving your request. Please try again later." },
       { status: 503 },

@@ -3,7 +3,8 @@ import mongoose, { Schema, type Model } from "mongoose";
 export type ContactMethod = "phone" | "email";
 
 export interface LeadRecord {
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email: string;
   postcode: string;
@@ -22,7 +23,8 @@ export interface LeadRecord {
 
 const leadSchema = new Schema<LeadRecord>(
   {
-    name: { type: String, required: true },
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
     phone: { type: String, required: true },
     email: { type: String, required: true, lowercase: true, trim: true },
     postcode: { type: String, required: true, uppercase: true, trim: true },
