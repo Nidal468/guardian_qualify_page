@@ -25,7 +25,6 @@ export default function Home() {
       <div className="flex-1 flex flex-col items-center justify-between w-full space-y-4 sm:space-y-6 md:space-y-10 bg-[#fafafa]">
         <div className="w-full">
           {quiz.idx === 0 && !submitted && <QuizHeading />}
-          {quiz.idx === 0 && !submitted && <PeaceOfMind />}
           <section className="lead-steps bg-[#fafafa] p-4" id="contactForm">
             <div className="flex flex-col">
               <QuizCard
@@ -68,6 +67,7 @@ export default function Home() {
               </QuizCard>
             </div>
           </section>
+          {quiz.idx === 0 && !submitted && <PeaceOfMind />}
         </div>
 
         {/* Inline disclaimers (old design style) */}
