@@ -192,7 +192,8 @@ export async function POST(request: Request) {
 
     const created = await Lead.create({ firstName, lastName, phone, email, postcode, contactMethod, ...toModelAnswers(answers) });
     const leadId = String(created._id);
-    const payload: Record<string, string> = {
+    const isLandline = phone.startsWith("441") || phone.startsWith("442") || phone.startsWith("443");
+    const payload: Record<string, string | boolean> = {
       ...answers,
       firstName,
       lastName,
@@ -201,6 +202,7 @@ export async function POST(request: Request) {
       postcode,
       contact_method: contactMethod,
       source: "guardian1st",
+      landline: isLandline,
     };
     const delivery = await deliverLeadWebhook(leadId, payload);
     return Response.json({ success: true, duplicate: false, delivery }, { status: 201 });

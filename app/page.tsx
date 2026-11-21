@@ -10,6 +10,8 @@ import CallScreen from "@/components/quiz/call-screen";
 import PeaceOfMind from "@/components/quiz/peace-of-mind";
 import { STEPS, TOTAL_STEPS } from "@/lib/quiz-data";
 import { useQuizState } from "@/lib/use-quiz-state";
+import { trackMetaEvent } from "@/lib/meta-pixel";
+import { useEffect } from "react";
 
 // Option-based steps have their key in `answers`; form steps validate their own fields (null).
 const STEP_KEYS: (string | null)[] = STEPS.map((s) => (s.isInput ? null : s.key));
@@ -18,6 +20,16 @@ export default function Home() {
   const quiz = useQuizState(TOTAL_STEPS, STEP_KEYS);
   const currentStep = STEPS[quiz.idx];
   const submitted = quiz.submitted;
+
+  // Fire ViewContent on each step change (including initial mount)
+  useEffect(() => {
+    if (submitted) return; // don't fire for thank-you/call screens
+    trackMetaEvent("ViewContent", {
+      content_id: currentStep.key,
+      content_name: currentStep.title,
+      content_type: "quiz",
+    });
+  }, [quiz.idx, submitted, currentStep.key, currentStep.title]);
 
   return (
     <div className="flex flex-col font-sans text-[#212529] space-y-4 sm:space-y-6 md:space-y-10 bg-[#fafafa] min-h-screen w-full">
