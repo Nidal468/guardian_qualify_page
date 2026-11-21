@@ -11,6 +11,7 @@ import PeaceOfMind from "@/components/quiz/peace-of-mind";
 import { STEPS, TOTAL_STEPS } from "@/lib/quiz-data";
 import { useQuizState } from "@/lib/use-quiz-state";
 import { trackMetaEvent } from "@/lib/meta-pixel";
+import { captureUrlParams } from "@/lib/tracking";
 import { useEffect } from "react";
 
 // Option-based steps have their key in `answers`; form steps validate their own fields (null).
@@ -20,6 +21,11 @@ export default function Home() {
   const quiz = useQuizState(TOTAL_STEPS, STEP_KEYS);
   const currentStep = STEPS[quiz.idx];
   const submitted = quiz.submitted;
+
+  // Capture URL tracking params (fbclid, UTM) into sessionStorage on first mount
+  useEffect(() => {
+    captureUrlParams();
+  }, []);
 
   // Fire ViewContent on each step change (including initial mount)
   useEffect(() => {

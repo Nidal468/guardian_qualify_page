@@ -63,6 +63,16 @@ async function deliverLeadWebhook(leadId: string, payload: Record<string, unknow
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/**
+ * Safely extract an optional string tracking field from the request body.
+ * Returns "" if the key is missing or not a string. Max length guard prevents abuse.
+ */
+function trackingField(body: Record<string, unknown>, key: string, maxLen = 500): string {
+  const value = body[key];
+  if (typeof value !== "string") return "";
+  return value.length <= maxLen ? value : value.slice(0, maxLen);
+}
+
 function text(value: unknown, key: string, max: number): string {
   if (typeof value !== "string" || value.length > max) throw new RequestError(400, `Invalid ${key}`);
   return value.trim();
@@ -86,7 +96,7 @@ function validatePhone(raw: unknown): string {
   if (!/^(?:\+44\d{8,14}|0\d{9,10}|\d{10,11})$/.test(phone)) throw new RequestError(400, "Invalid phone");
   let digits = phone.startsWith("+") ? phone.slice(1) : phone;
   if (digits.startsWith("0")) digits = `44${digits.slice(1)}`;
-  return digits;
+  return `+${digits}`;
 }
 
 function validateEmail(raw: unknown): string {
@@ -192,7 +202,7 @@ export async function POST(request: Request) {
 
     const created = await Lead.create({ firstName, lastName, phone, email, postcode, contactMethod, ...toModelAnswers(answers) });
     const leadId = String(created._id);
-    const isLandline = phone.startsWith("441") || phone.startsWith("442") || phone.startsWith("443");
+    const isLandline = phone.startsWith("+441") || phone.startsWith("+442") || phone.startsWith("+443");
     const payload: Record<string, string | boolean> = {
       ...answers,
       firstName,
@@ -203,6 +213,15 @@ export async function POST(request: Request) {
       contact_method: contactMethod,
       source: "guardian1st",
       landline: isLandline,
+      fbclid: trackingField(body, "fbclid"),
+      fbc: trackingField(body, "fbc"),
+      fbp: trackingField(body, "fbp"),
+      utm_source: trackingField(body, "utm_source"),
+      utm_medium: trackingField(body, "utm_medium"),
+      utm_campaign: trackingField(body, "utm_campaign"),
+      utm_content: trackingField(body, "utm_content"),
+      utm_term: trackingField(body, "utm_term"),
+      landing_page_url: trackingField(body, "landing_page_url", 2000),
     };
     const delivery = await deliverLeadWebhook(leadId, payload);
     return Response.json({ success: true, duplicate: false, delivery }, { status: 201 });

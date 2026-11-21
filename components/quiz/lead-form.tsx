@@ -7,6 +7,7 @@ import confetti from "canvas-confetti";
 import { STEPS, TOTAL_STEPS } from "@/lib/quiz-data";
 import type { StepData } from "@/lib/quiz-data";
 import { useHasPhysicalKeyboard } from "@/lib/use-keyboard-nav";
+import { getMetaTrackingData } from "@/lib/tracking";
 import type { FormFields } from "@/lib/use-quiz-state";
 import type { LeadDelivery } from "@/app/api/leads/route";
 
@@ -264,6 +265,7 @@ export default function LeadForm({ currentStep, idx, answers, formFields, update
             postcode,
             contactMethod,
             answers,
+            ...getMetaTrackingData(),
           }),
         });
         const data = (await response.json().catch(() => ({}))) as {
