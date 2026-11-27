@@ -22,8 +22,8 @@ function delay(ms: number, signal: AbortSignal) {
 }
 
 /** Contact setup is independent of the optional third-party widget loader. */
-export function useContact(email?: string) {
-  const [state, setState] = useState<ContactState>({ status: "loading", contactId: null, error: "" });
+export function useContact(email?: string, initialContactId?: string | null) {
+  const [state, setState] = useState<ContactState>({ status: "loading", contactId: initialContactId ?? null, error: "" });
   const [attempt, setAttempt] = useState(0);
   const [skip, setSkip] = useState(false);
 
@@ -32,6 +32,10 @@ export function useContact(email?: string) {
     void (async () => {
       await Promise.resolve();
       if (controller.signal.aborted) return;
+      if (initialContactId) {
+        setState({ email, status: "ready", contactId: initialContactId, error: "" });
+        return;
+      }
       if (skip || !email) {
         setState({ email, status: "ready", contactId: null, error: "" });
         return;
@@ -66,7 +70,7 @@ export function useContact(email?: string) {
       }
     })();
     return () => controller.abort();
-  }, [email, attempt, skip]);
+  }, [email, attempt, skip, initialContactId]);
 
   const retry = useCallback(() => {
     setSkip(false);

@@ -15,6 +15,7 @@ export function synthesizeGuestContactId(details?: { email?: string; phone?: str
 }
 
 interface ChatContext {
+  agentId?: string;
   contactId?: string;
   contactName?: string;
   conversationId?: string;
@@ -184,7 +185,8 @@ export async function streamReply(
         ? await preFetchedResponse
         : await ((): Promise<Response> => {
             const config = backendConfig();
-            return fetch(`${config.base}/api/agents/${encodeURIComponent(config.agentId)}/chat`, {
+            const targetAgentId = context.agentId || config.agentId;
+            return fetch(`${config.base}/api/agents/${encodeURIComponent(targetAgentId)}/chat`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",

@@ -53,8 +53,9 @@ export async function POST(req: Request) {
     let preFetchedGreeting: Promise<Response> | undefined;
     if (!session.greetingComplete && !session.greetingText) {
       const config = backendConfig();
+      const targetAgentId = session.agentId || config.agentId;
       preFetchedGreeting = fetch(
-        `${config.base}/api/agents/${encodeURIComponent(config.agentId)}/chat`,
+        `${config.base}/api/agents/${encodeURIComponent(targetAgentId)}/chat`,
         {
           method: "POST",
           headers: {
@@ -272,6 +273,7 @@ export async function POST(req: Request) {
                 throw new Error("Initial greeting was interrupted. End this call and start a new one.");
               }
               const result = await streamReply(message, {
+                agentId: currentSession.agentId,
                 contactId: currentSession.contactId,
                 contactName: currentSession.contactName,
                 conversationId: currentSession.conversationId,

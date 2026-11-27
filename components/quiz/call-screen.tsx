@@ -8,6 +8,8 @@ import { useContact } from "./call-interface/use-contact";
 import type { CallUIProps } from "./call-interface/types";
 
 interface CallScreenProps {
+  agentId?: string;
+  initialContactId?: string;
   firstName: string;
   lastName: string;
   phone?: string;
@@ -16,12 +18,12 @@ interface CallScreenProps {
 
 const GHL_WIDGET_ID = process.env.NEXT_PUBLIC_GHL_WIDGET_ID;
 
-export default function CallScreen({ firstName, lastName, phone, email }: CallScreenProps) {
+export default function CallScreen({ agentId, initialContactId, firstName, lastName, phone, email }: CallScreenProps) {
   const fName = firstName || undefined;
   const lName = lastName || undefined;
 
-  const contact = useContact(email);
-  const call = useCall({ email, phone, firstName: fName, lastName: lName, ghlContactId: contact.contactId });
+  const contact = useContact(email, initialContactId);
+  const call = useCall({ agentId, email, phone, firstName: fName, lastName: lName, ghlContactId: contact.contactId });
   const [mobileCallOpen, setMobileCallOpen] = useState(false);
   const closeMobileCall = useCallback(() => setMobileCallOpen(false), []);
   const openMobileCall = () => setMobileCallOpen(true);

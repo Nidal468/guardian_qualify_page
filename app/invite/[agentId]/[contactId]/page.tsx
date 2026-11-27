@@ -34,7 +34,7 @@ export default function InvitePage() {
 
 function InviteContent() {
   const params = useParams<{ agentId: string; contactId: string }>();
-  const { contactId } = params;
+  const { agentId, contactId } = params;
 
   const [contact, setContact] = useState<ContactData | null>(null);
   const [error, setError] = useState<string>("");
@@ -73,6 +73,8 @@ function InviteContent() {
                   </div>
                 ) : contact ? (
                   <CallScreen
+                    agentId={agentId}
+                    initialContactId={contactId}
                     firstName={contact.firstName}
                     lastName={contact.lastName}
                     phone={contact.phone}

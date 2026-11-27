@@ -14,6 +14,7 @@ import type { CallState } from "./types";
 const POST_PLAYBACK_COOLDOWN_MS = 450;
 
 interface UseCallProps extends UserDetails {
+  agentId?: string;
   ghlContactId?: string | null;
 }
 
@@ -72,7 +73,7 @@ function notifyEnd(sessionId: string) {
   });
 }
 
-export function useCall({ email, phone, firstName, lastName, ghlContactId }: UseCallProps) {
+export function useCall({ agentId, email, phone, firstName, lastName, ghlContactId }: UseCallProps) {
   const [callState, setCallState] = useState<CallState>("idle");
   const [callDuration, setCallDuration] = useState(0);
   const [transcript, setTranscript] = useState("");
@@ -773,6 +774,7 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(resumeSession ? { sessionId: sessionRef.current } : {
                 message: `Please greet the user by name: ${firstName || "our valued guest"}. You are Carla from Guardian 1st.`,
+                ...(agentId ? { agentId } : {}),
                 contactId: ghlContactId || undefined,
                 contactName: `${firstName || ""} ${lastName || ""}`.trim(),
                 userDetails: { email, phone, firstName, lastName },
@@ -1007,7 +1009,7 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
         clearTimeout(watchdog);
       }
     })();
-  }, [email, phone, firstName, lastName, ghlContactId, clearPendingSpeech, fail, maybeListen, startMicrophone, startRecognition, stopResources, transition]);
+  }, [agentId, email, phone, firstName, lastName, ghlContactId, clearPendingSpeech, fail, maybeListen, startMicrophone, startRecognition, stopResources, transition]);
 
   const endCall = useCallback(() => {
     logCall("call.end.requested", { state: stateRef.current });

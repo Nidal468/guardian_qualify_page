@@ -9,6 +9,7 @@ const RETENTION_MS = 24 * 60 * 60 * 1000;
 
 export interface SessionRecord {
   sessionId: string;
+  agentId?: string;
   conversationId?: string;
   contactId?: string;
   contactName?: string;
@@ -42,6 +43,7 @@ const detailsSchema = new Schema<UserDetails>({
 
 const sessionSchema = new Schema<SessionRecord>({
   sessionId: { type: String, required: true },
+  agentId: String,
   conversationId: String,
   contactId: String,
   contactName: String,
@@ -131,6 +133,7 @@ export async function acquireSession(input: CallInput, owner: string) {
   if (!input.sessionId) {
     const session = await CallSession.create({
       sessionId: randomUUID(),
+      agentId: input.agentId,
       initialMessage: input.message,
       contactId: input.contactId,
       contactName: input.contactName,

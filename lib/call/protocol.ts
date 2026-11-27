@@ -10,6 +10,7 @@ export interface UserDetails {
 
 export interface CallInput {
   sessionId?: string;
+  agentId?: string;
   message: string;
   contactId?: string;
   contactName?: string;
@@ -58,11 +59,21 @@ export function parseSessionId(value: unknown): string {
   return id;
 }
 
+export function parseAgentId(value: unknown): string | undefined {
+  const id = text(value, "agentId", 64);
+  if (!id) return undefined;
+  if (!/^[0-9a-f]{24}$/i.test(id)) {
+    throw new RequestError(400, "Invalid agentId");
+  }
+  return id;
+}
+
 export function parseCallInput(value: unknown): CallInput {
   const body = record(value);
   const details = body.userDetails === undefined ? {} : record(body.userDetails);
   return {
     sessionId: body.sessionId === undefined ? undefined : parseSessionId(body.sessionId),
+    agentId: body.agentId === undefined ? undefined : parseAgentId(body.agentId),
     message: text(body.message, "message", 2_000, body.sessionId === undefined) ?? "",
     contactId: text(body.contactId, "contactId", 128),
     contactName: text(body.contactName, "contactName", 240),
