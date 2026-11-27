@@ -2,11 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { readSSE, type UserDetails } from "@/lib/call/protocol";
+import { isLikelyAgentEcho } from "@/lib/call/echo-filter";
 import { callDebugEnabled, callErrorDetails, logCallDiagnostic, type CallDebugDetails } from "@/lib/call/diagnostics";
 import { AudioQueue } from "./audio-queue";
 import { DecodedAudioQueue } from "./decoded-audio-queue";
 import { Microphone } from "./microphone";
 import type { CallState } from "./types";
+
+// Wait after TTS audio finishes before resuming SpeechRecognition so speaker
+// tail / room reverb / Chrome STT buffering cannot echo Carla's own words.
+const POST_PLAYBACK_COOLDOWN_MS = 450;
 
 interface UseCallProps extends UserDetails {
   ghlContactId?: string | null;
@@ -99,6 +104,9 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
   const startRecognitionRef = useRef<(() => void) | null>(null);
   const speechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listenCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ignoreSpeechUntilRef = useRef(0);
+  const recentAgentRepliesRef = useRef<string[]>([]);
   const turnRef = useRef<string | null>(null);
   const sequenceRef = useRef(0);
   const turnCompleteRef = useRef(false);
@@ -144,6 +152,8 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
     clearPendingSpeech();
     if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
     restartTimerRef.current = null;
+    if (listenCooldownTimerRef.current) clearTimeout(listenCooldownTimerRef.current);
+    listenCooldownTimerRef.current = null;
     const recognition = recognitionRef.current;
     recognitionRef.current = null;
     resetSpeechRef.current = null;
@@ -202,6 +212,8 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
     turnCompleteRef.current = false;
     turnRef.current = null;
     sendingRef.current = false;
+    ignoreSpeechUntilRef.current = 0;
+    recentAgentRepliesRef.current = [];
   }, [stopMicrophone, stopRecognition]);
 
   const fail = useCallback((message: string, generation: number) => {
@@ -288,12 +300,21 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
     if (readyRef.current && turnCompleteRef.current && !playerRef.current?.busy) {
       if (stateRef.current !== "listening") clearPendingSpeech();
       transition("listening");
-      // Ensure a live recognizer exists now that we're listening.
-      // The onend restart may not have fired yet, or may have silently failed.
-      if (!mutedRef.current && !recognitionRef.current) {
-        logCall("listening.ensure.recognition", { reason: "no-active-recognizer" });
-        startRecognitionRef.current?.();
-      }
+      // Defer SpeechRecognition restart past the speaker-echo / room-reverb tail
+      // so Carla's final words cannot be transcribed as the caller's turn.
+      const cooldownUntil = Math.max(ignoreSpeechUntilRef.current, Date.now() + POST_PLAYBACK_COOLDOWN_MS);
+      ignoreSpeechUntilRef.current = cooldownUntil;
+      if (listenCooldownTimerRef.current) clearTimeout(listenCooldownTimerRef.current);
+      const generation = generationRef.current;
+      const delayMs = Math.max(0, cooldownUntil - Date.now());
+      listenCooldownTimerRef.current = setTimeout(() => {
+        listenCooldownTimerRef.current = null;
+        if (generation !== generationRef.current || stateRef.current !== "listening") return;
+        if (!mutedRef.current && !recognitionRef.current && !playerRef.current?.busy) {
+          logCall("listening.ensure.recognition", { reason: "post-playback-cooldown" });
+          startRecognitionRef.current?.();
+        }
+      }, delayMs);
     }
   }, [clearPendingSpeech, transition]);
 
@@ -301,6 +322,11 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
     // Defensive check: never send empty or whitespace-only messages
     if (!message || !message.trim()) {
       logCall("message.submit.skipped.empty", { textLength: message?.length ?? 0 });
+      return;
+    }
+    if (isLikelyAgentEcho(message, recentAgentRepliesRef.current)) {
+      logCall("message.submit.skipped.echo", { textLength: message.length });
+      clearPendingSpeech();
       return;
     }
     const sessionId = sessionRef.current;
@@ -408,9 +434,9 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
       hasRecognizer: recognitionRef.current !== null, hasController: controllerRef.current !== null,
       aborted: controllerRef.current?.signal.aborted,
     });
-    if (mutedRef.current || ["idle", "ended", "error"].includes(stateRef.current) || recognitionRef.current) {
+    if (mutedRef.current || stateRef.current !== "listening" || recognitionRef.current) {
       logCall("recognition.start.skipped", {
-        reason: mutedRef.current ? "muted" : recognitionRef.current ? "already-running" : "inactive-call",
+        reason: mutedRef.current ? "muted" : recognitionRef.current ? "already-running" : "not-listening",
       });
       return;
     }
@@ -433,7 +459,11 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
     // can be replaced or removed. Never permanently blacklist an interim index.
     const observedResults = new Map<number, { epoch: number; isFinal: boolean }>();
     const current = () => generation === generationRef.current && recognitionRef.current === recognition;
-    const acceptsSpeech = () => current() && !mutedRef.current && stateRef.current === "listening";
+    const acceptsSpeech = () =>
+      current() &&
+      !mutedRef.current &&
+      stateRef.current === "listening" &&
+      Date.now() >= ignoreSpeechUntilRef.current;
     const recognitionStartedAt = Date.now();
     const logRecognition = (event: string, details: CallDebugDetails = {}) => logCall(event, {
       generation, currentGeneration: generationRef.current, currentRecognizer: current(),
@@ -516,11 +546,12 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
           observedResults.set(index, { epoch: -1, isFinal: result.isFinal });
           continue;
         }
-        // A final for an interim last observed during playback is still stale.
-        // A NEW interim, however, is allowed to replace that mutable slot.
-        if (result.isFinal && observed && observed.epoch !== epoch) {
-          logRecognition("recognition.result.ignored", { ...resultDetails, reason: "interim-from-another-epoch" });
-          observedResults.set(index, { epoch: -1, isFinal: true });
+        // Block ANY result (final or interim) whose index was previously observed
+        // in another epoch (e.g. during playback) so stale speaker audio cannot
+        // bleed into the current listening turn.
+        if (observed && observed.epoch !== epoch) {
+          logRecognition("recognition.result.ignored", { ...resultDetails, reason: "stale-epoch-result" });
+          observedResults.set(index, { epoch: -1, isFinal: result.isFinal });
           continue;
         }
         logRecognition("recognition.result.accepted", resultDetails);
@@ -600,9 +631,9 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
       recognitionRef.current = null;
       resetSpeechRef.current = null;
       microphoneReadyRef.current = false;
-      // Browsers can end even a continuous session. Restart during AI turns
-      // too, so any unavoidable warm-up happens before the user needs to speak.
-      if (!mutedRef.current && !["idle", "ended", "error"].includes(stateRef.current)) {
+      // Only auto-restart SpeechRecognition while actively listening — never
+      // keep it running during AI speaking/thinking turns where it captures speaker echo.
+      if (!mutedRef.current && stateRef.current === "listening") {
         // Avoid a tight restart loop if a browser immediately aborts a session.
         const delayMs = Date.now() - recognitionStartedAt < 1_000 ? 1_000 : 100;
         logRecognition("recognition.restart.scheduled", { delayMs });
@@ -675,7 +706,8 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
         }
         logCall("playback.started", { state: stateRef.current, generation, currentGeneration: generationRef.current });
         if (generation !== generationRef.current) return;
-        clearPendingSpeech();
+        // Abort SpeechRecognition while Carla speaks so speaker audio is never buffered by STT.
+        stopRecognition();
         transition("speaking");
       },
       onDrain: () => {
@@ -703,10 +735,9 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
     // Create, prime and resume output before any await loses the Start gesture.
     playerRef.current.initialize();
     if (controller.signal.aborted || generation !== generationRef.current) return;
-    // Request persistent capture and recognition in the initial click gesture.
-    // Recognition may time out; capture remains open independently.
+    // Request persistent capture in the initial click gesture; SpeechRecognition
+    // starts once Carla finishes speaking the greeting (via maybeListen).
     startMicrophone();
-    startRecognition();
 
     void (async () => {
       let watchdog: ReturnType<typeof setTimeout> | undefined;
@@ -835,6 +866,12 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
                 });
                 break;
               case "turn-complete":
+                if (typeof data.text === "string" && data.text.trim()) {
+                  recentAgentRepliesRef.current = [
+                    ...recentAgentRepliesRef.current.slice(-2),
+                    data.text.trim(),
+                  ];
+                }
                 if (data.turnId === turnRef.current) {
                   turnCompleteRef.current = true;
                   maybeListen();
@@ -1041,6 +1078,7 @@ export function useCall({ email, phone, firstName, lastName, ghlContactId }: Use
     const watchdog = setInterval(() => {
       const listening = stateRef.current === "listening" && !mutedRef.current;
       if (!listening || !controllerRef.current || controllerRef.current.signal.aborted) return;
+      if (listenCooldownTimerRef.current || Date.now() < ignoreSpeechUntilRef.current) return;
       const hasRecognizer = recognitionRef.current !== null;
       const staleAudioStart = Date.now() - lastAudioStartRef.current > 6_000;
       if (!hasRecognizer || (staleAudioStart && !microphoneReadyRef.current)) {

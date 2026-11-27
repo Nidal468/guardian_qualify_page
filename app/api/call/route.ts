@@ -264,6 +264,7 @@ export async function POST(req: Request) {
             },
           };
           try {
+            let turnReplyText = greeting ? currentSession.greetingText : undefined;
             if (greeting && currentSession.greetingText) {
               await speakText(currentSession.greetingText, controller.signal, callbacks, currentSession.conversationId);
             } else {
@@ -277,6 +278,7 @@ export async function POST(req: Request) {
                 userDetails: currentSession.userDetails,
               }, controller.signal, callbacks, greeting ? preFetchedGreeting : undefined);
               currentSession.conversationId = result.conversationId;
+              turnReplyText = result.text;
               if (greeting) preFetchedGreeting = undefined;
             }
             if (greeting) {
@@ -292,7 +294,7 @@ export async function POST(req: Request) {
             await CallSession.updateOne({ sessionId: currentSession.sessionId, owner }, {
               $set: { lastActivityAt: new Date() },
             });
-            await send("turn-complete", { turnId });
+            await send("turn-complete", { turnId, ...(turnReplyText ? { text: turnReplyText } : {}) });
           } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
             
